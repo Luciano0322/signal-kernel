@@ -13,11 +13,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 先安裝 pnpm，這樣 setup-node 使用 cache: pnpm 才找得到 pnpm 指令
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.11.0
           run_install: false
 
       - name: Setup Node
