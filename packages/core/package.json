@@ -9,7 +9,7 @@
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
