@@ -6,11 +6,15 @@ export interface FromPromiseOptions {
   onSuccess?: <T>(value: T) => void;
   onError?: (error: unknown) => void;
   keepPreviousValueOnPending?: boolean;
+  /**
+   * 當 cancel() 被呼叫時的 callback
+   * 注意：目前 cancel 只代表「捨棄這次結果」，不改 status/value/error。
+   */
+  onCancel?: (reason?: unknown) => void;
 }
 
 /**
- * 將一個 () => Promise<T> 轉成 AsyncSignal<T>。
- *
+ * 將一個 () => Promise<T> 轉成 AsyncSignal<T>
  * - 使用三顆 signal：value / status / error
  * - 用 token 確保只接受最新一次請求的結果
  */
@@ -65,8 +69,11 @@ export function fromPromise<T, E = unknown>(
     );
   }
 
-  function cancel() {
+  function cancel(reason?: unknown) {
+    if (aborted) return;
     aborted = true;
+    options.onCancel?.(reason);
+    // 狀態保持不變（通常還是 pending），結果交給新的 run() 接手
   }
 
   const eager = options.eager ?? true;

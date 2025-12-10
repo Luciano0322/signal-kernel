@@ -276,4 +276,33 @@ describe("fromPromise", () => {
     expect(asyncSig.status()).toBe("success");
     expect(asyncSig.value()).toBe(2);
   });
+  it("cancel() 會呼叫 onCancel 並忽略後續結果", async () => {
+    let resolveFn!: (v: number) => void;
+
+    const makePromise = () =>
+      new Promise<number>((resolve) => {
+        resolveFn = resolve;
+      });
+
+    const onCancel = vi.fn();
+
+    const asyncSig = fromPromise(makePromise, { onCancel });
+
+    expect(asyncSig.status()).toBe("pending");
+
+    asyncSig.cancel("test-reason");
+
+    // 之後就算 promise resolve，也不應該更新狀態或值
+    resolveFn(123);
+    await tick();
+
+    // 狀態維持 pending（設計上的語意：這次結果被捨棄）
+    expect(asyncSig.status()).toBe("pending");
+    expect(asyncSig.value()).toBeUndefined();
+    expect(asyncSig.error()).toBeUndefined();
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onCancel).toHaveBeenCalledWith("test-reason");
+  });
+
 });

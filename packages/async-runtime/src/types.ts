@@ -5,5 +5,5 @@ export interface AsyncSignal<T, E = unknown> {
   status: () => AsyncStatus;
   error: () => E | undefined;
   reload: () => void;
-  cancel: () => void;
+  cancel:  (reason?: unknown) => void;
 }
