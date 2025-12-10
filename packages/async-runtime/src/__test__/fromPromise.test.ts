@@ -195,4 +195,85 @@ describe("fromPromise", () => {
     expect(okSig.status()).toBe("success");
     expect(errSig.status()).toBe("error");
   });
+  it("預設會在 pending 期間保留上一筆成功資料（keepPreviousValueOnPending 預設為 true）", async () => {
+    let resolveFirst!: (v: number) => void;
+    let resolveSecond!: (v: number) => void;
+    let callCount = 0;
+
+    const makePromise = vi.fn(() => {
+      if (callCount === 0) {
+        callCount++;
+        return new Promise<number>((resolve) => {
+          resolveFirst = resolve;
+        });
+      }
+      callCount++;
+      return new Promise<number>((resolve) => {
+        resolveSecond = resolve;
+      });
+    });
+
+    const asyncSig = fromPromise(makePromise);
+
+    // 第一筆 pending -> success
+    expect(asyncSig.status()).toBe("pending");
+    resolveFirst(1);
+    await tick();
+
+    expect(asyncSig.status()).toBe("success");
+    expect(asyncSig.value()).toBe(1);
+
+    // reload 後進入 pending，但預設應保留舊 value
+    asyncSig.reload();
+    expect(asyncSig.status()).toBe("pending");
+    expect(asyncSig.value()).toBe(1);
+
+    resolveSecond(2);
+    await tick();
+
+    expect(asyncSig.status()).toBe("success");
+    expect(asyncSig.value()).toBe(2);
+  });
+  it("keepPreviousValueOnPending = false 時，pending 會清空 value", async () => {
+    let resolveFirst!: (v: number) => void;
+    let resolveSecond!: (v: number) => void;
+    let callCount = 0;
+
+    const makePromise = vi.fn(() => {
+      if (callCount === 0) {
+        callCount++;
+        return new Promise<number>((resolve) => {
+          resolveFirst = resolve;
+        });
+      }
+      callCount++;
+      return new Promise<number>((resolve) => {
+        resolveSecond = resolve;
+      });
+    });
+
+    const asyncSig = fromPromise(makePromise, {
+      keepPreviousValueOnPending: false,
+    });
+
+    // 第一筆成功，value = 1
+    expect(asyncSig.status()).toBe("pending");
+    resolveFirst(1);
+    await tick();
+
+    expect(asyncSig.status()).toBe("success");
+    expect(asyncSig.value()).toBe(1);
+
+    // reload → pending 期間應該清空 value
+    asyncSig.reload();
+
+    expect(asyncSig.status()).toBe("pending");
+    expect(asyncSig.value()).toBeUndefined();
+
+    resolveSecond(2);
+    await tick();
+
+    expect(asyncSig.status()).toBe("success");
+    expect(asyncSig.value()).toBe(2);
+  });
 });
