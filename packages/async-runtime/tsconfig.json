@@ -2,13 +2,18 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "strict": true,
     "declaration": true,
     "outDir": "dist",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "composite": true
+    "composite": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@signal-kernel/core": ["../core/src/index.ts"]
+    }
   },
   "references": [{ "path": "../core" }],
   "include": ["src"]
