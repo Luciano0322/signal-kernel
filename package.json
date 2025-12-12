@@ -8,6 +8,7 @@
     "lint": "pnpm -r --if-present lint",
     "typecheck": "tsc -b tsconfig.build.json --pretty false",
     "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "prepare": "husky"
