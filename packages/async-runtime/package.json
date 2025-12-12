@@ -2,14 +2,23 @@
   "name": "@signal-kernel/async-runtime",
   "version": "0.0.1",
   "type": "module",
-  "main": "dist/index.cjs",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
   "sideEffects": false,
+
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
+    "pretest": "pnpm -F @signal-kernel/core build",
     "test": "vitest run"
   },
   "dependencies": {
