@@ -1,2 +1,4 @@
 export * from "./types";
-export * from "./fromPromise";
+export * from "./fromPromise.js";
+export * from "./asyncSignal.js";
+export * from "./createResource.js";
