@@ -6,7 +6,6 @@ export interface AsyncMeta<E = unknown> {
   status: () => AsyncStatus;
   error: () => E | undefined;
   reload: () => void;
-  /** 可帶 reason，方便上層標記 cancel 來源（例如 source-changed） */
   cancel: (reason?: unknown) => void;
   keepPreviousValueOnPending: boolean;
 }

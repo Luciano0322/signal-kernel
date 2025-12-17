@@ -10,7 +10,6 @@ export interface EffectRegistry {
   delete(node: Node): void;
 }
 
-// Symbol 私有槽定義
 export const EffectSlot: unique symbol = Symbol("EffectSlot");
 export interface EffectCarrier {
   [EffectSlot]?: EffectInstanceLike;
