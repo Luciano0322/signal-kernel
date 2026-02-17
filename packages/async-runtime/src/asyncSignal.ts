@@ -11,7 +11,7 @@ export interface AsyncMeta<E = unknown> {
 }
 
 export function asyncSignal<T, E = unknown>(
-  makePromise: () => Promise<T>,
+  makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
   options?: FromPromiseOptions
 ): [() => T | undefined, AsyncMeta<E>] {
   const sig = fromPromise<T, E>(makePromise, options);

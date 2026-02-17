@@ -1,4 +1,4 @@
-export type AsyncStatus = "idle" | "pending" | "success" | "error";
+export type AsyncStatus = "idle" | "pending" | "success" | "error" | "cancelled";
 
 export interface AsyncSignal<T, E = unknown> {
   value: () => T | undefined;

@@ -5,66 +5,92 @@ import { createResource } from "../createResource.js";
 const tick = () => Promise.resolve();
 
 describe("createResource", () => {
-  it("會根據 source() 變化重新 fetch，並在切換時 cancel 舊請求", async () => {
-    const id = signal(1);
+  it("初次建立會依 source 執行 fetch，進入 pending", async () => {
+    const { get, set } = signal(1);
 
-    let resolve1!: (v: string) => void;
-    let resolve2!: (v: string) => void;
-    let callCount = 0;
+    const fetcher = vi.fn(async (s: number, _ctx: { signal: AbortSignal; token: number }) => {
+      return s * 10;
+    });
 
-    const fetchUser = vi.fn((userId: number) => {
-      if (callCount === 0) {
-        callCount++;
-        return new Promise<string>((resolve) => {
+    const [val, meta] = createResource(get, fetcher);
+
+    // createEffect 通常會立刻跑一次
+    expect(meta.status()).toBe("pending");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+
+    await tick();
+
+    expect(meta.status()).toBe("success");
+    expect(val()).toBe(10);
+
+    // 改 source → 觸發下一輪
+    set(2);
+    await tick();
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("source change 會 cancel 前一次 in-flight，且舊結果不覆蓋新結果（switch-latest）", async () => {
+    const { get, set } = signal(1);
+
+    let resolve1!: (v: number) => void;
+    let resolve2!: (v: number) => void;
+
+    const fetcher = vi.fn((s: number, ctx: { signal: AbortSignal; token: number }) => {
+      if (s === 1) {
+        return new Promise<number>((resolve, reject) => {
           resolve1 = resolve;
+          // 若你在 fromPromise 加了 AbortError 分流，可模擬 abort -> reject AbortError
+          ctx.signal.addEventListener("abort", () => {
+            const abortErr =
+              typeof DOMException !== "undefined"
+                ? new DOMException("Aborted", "AbortError")
+                : Object.assign(new Error("Aborted"), { name: "AbortError" });
+            reject(abortErr);
+          });
         });
       }
-      callCount++;
-      return new Promise<string>((resolve) => {
+      return new Promise<number>((resolve) => {
         resolve2 = resolve;
       });
     });
 
-    const onCancel = vi.fn();
+    const onError = vi.fn();
+    const [val, meta] = createResource(get, fetcher, { onError });
 
-    const [user, meta] = createResource(
-      () => id.get(),
-      (userId) => fetchUser(userId),
-      { keepPreviousValueOnPending: true, onCancel }
-    );
-
-    // 初次會根據 id=1 發送一次
-    expect(fetchUser).toHaveBeenCalledTimes(1);
-    expect(fetchUser).toHaveBeenCalledWith(1);
     expect(meta.status()).toBe("pending");
-    expect(user()).toBeUndefined();
 
-    // 第一次完成
-    resolve1("User#1");
+    // source change -> cancel old + reload new
+    set(2);
+    await tick();
+
+    expect(meta.status()).toBe("pending");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+
+    // 先讓第二個完成
+    resolve2(200);
     await tick();
 
     expect(meta.status()).toBe("success");
-    expect(user()).toBe("User#1");
+    expect(val()).toBe(200);
+    expect(onError).not.toHaveBeenCalled();
 
-    // 改變 source → 應 cancel 舊請求並重新 fetch
-    id.set(2);
-    await tick(); // 讓 createEffect rerun、meta.reload() 被呼叫
-
-    expect(fetchUser).toHaveBeenCalledTimes(2);
-    expect(fetchUser).toHaveBeenLastCalledWith(2);
-
-    // keepPreviousValueOnPending = true → pending 期間保留舊資料
-    expect(meta.status()).toBe("pending");
-    expect(user()).toBe("User#1");
-
-    // onCancel 應該被呼叫一次，reason 是 "source-changed"
-    expect(onCancel).toHaveBeenCalledTimes(1);
-    expect(onCancel).toHaveBeenCalledWith("source-changed");
-
-    resolve2("User#2");
+    // 第一個最後才完成（或 resolve 或 reject），都不得覆蓋
+    resolve1(100);
     await tick();
 
     expect(meta.status()).toBe("success");
-    expect(user()).toBe("User#2");
+    expect(val()).toBe(200);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("eager:false 的行為由 createResource 控制：建立後仍會因 effect 觸發而執行一次", () => {
+    const { get } = signal(1);
+    const fetcher = vi.fn(async (s: number) => s);
+
+    createResource(get, fetcher as any);
+
+    // 雖然 asyncSignal eager:false，但 createEffect 會立刻呼叫 meta.reload()
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });
