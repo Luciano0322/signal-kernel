@@ -1,2 +1,7 @@
-pnpm lint
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm use 22 >/dev/null
+
+node -v
+pnpm -r --if-present lint
 pnpm typecheck

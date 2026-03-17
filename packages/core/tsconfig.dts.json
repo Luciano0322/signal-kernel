@@ -1,12 +1,24 @@
 {
-  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "composite": false,
-    "noEmit": false,
-    "emitDeclarationOnly": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
     "declaration": true,
+    "emitDeclarationOnly": false,
     "declarationMap": false,
-    "outDir": "dist"
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "incremental": false,
+    "composite": false,
+    "rootDir": "./src"
   },
-  "include": ["src"]
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/**/__tests__/**",
+    "dist",
+    "node_modules"
+  ]
 }

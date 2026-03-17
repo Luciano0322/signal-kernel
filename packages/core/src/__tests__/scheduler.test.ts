@@ -167,6 +167,7 @@ describe("two-phase scheduler", () => {
       });
     } catch (e) {
       // swallow
+      console.error(e)
     }
 
     // 回滾：值恢復

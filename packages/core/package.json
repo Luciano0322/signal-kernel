@@ -1,6 +1,6 @@
 {
   "name": "@signal-kernel/core",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "sideEffects": false,
 
@@ -16,6 +16,9 @@
     }
   },
   "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
     "lint": "eslint src --ext .ts",
