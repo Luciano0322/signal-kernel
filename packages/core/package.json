@@ -2,6 +2,8 @@
   "name": "@signal-kernel/core",
   "version": "0.1.0",
   "type": "module",
+  "author": "Luciano Lee",
+  "license": "MIT",
   "sideEffects": false,
 
   "main": "./dist/index.cjs",
@@ -15,23 +17,40 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Luciano0322/signal-kernel.git"
+  },
+  "homepage": "https://github.com/Luciano0322/signal-kernel#readme",
+  "bugs": {
+    "url": "https://github.com/Luciano0322/signal-kernel/issues"
+  },
+
+  "keywords": [
+    "signals",
+    "reactivity",
+    "fine-grained",
+    "reactive",
+    "state-management",
+    "runtime",
+    "scheduler"
+  ],
+
   "publishConfig": {
     "access": "public"
   },
+
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.48.1",
-    "@typescript-eslint/parser": "^8.48.1",
-    "eslint": "^9.39.1",
-    "tsup": "^8.0.0",
-    "typescript": "^5.6.0",
-    "vitest": "^2.0.0"
   }
 }

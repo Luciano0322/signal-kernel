@@ -1,0 +1,17 @@
+flowchart TD
+  A["signal.set()"] --> B["mark computed as stale"]
+
+  B --> C["Scheduler triggered"]
+
+  subgraph PhaseA["Phase A: Stabilize Computed"]
+    C --> D["Recompute all stale computed"]
+  end
+
+  subgraph PhaseB["Phase B: Run Effects"]
+    D --> E["Execute effects (by priority)"]
+  end
+
+  E --> F{"New work generated?"}
+
+  F -- Yes --> C
+  F -- No --> G["Flush complete"]

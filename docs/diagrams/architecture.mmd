@@ -1,0 +1,32 @@
+flowchart TD
+
+  Start["flushJobsTwoPhase()"] --> Check{"computeQ or effectQ empty?"}
+
+  Check -- Yes --> End["return"]
+  Check -- No --> Reset["scheduled = false"]
+
+  Reset --> PhaseAStart
+
+  %% Phase A
+  subgraph PhaseA["Phase A: Process computed queue"]
+    PhaseAStart --> CCheck{"computeQ empty?"}
+    CCheck -- No --> CRun["run computed job"]
+    CRun --> CEnqueue["may enqueue computed/effect"]
+    CEnqueue --> CCheck
+    CCheck -- Yes --> PhaseBStart
+  end
+
+  %% Phase B
+  subgraph PhaseB["Phase B: Process effect queue"]
+    PhaseBStart --> ECheck{"effectQ empty?"}
+    ECheck -- No --> ESort["sort by priority"]
+    ESort --> ERun["run effect job"]
+    ERun --> EEnqueue["may enqueue computed/effect"]
+    EEnqueue --> LoopCheck
+    ECheck -- Yes --> End
+  end
+
+  %% Loop control
+  LoopCheck{"new work exists?"}
+  LoopCheck -- Yes --> Reset
+  LoopCheck -- No --> End
