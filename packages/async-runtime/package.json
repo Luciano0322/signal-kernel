@@ -1,9 +1,10 @@
 {
   "name": "@signal-kernel/async-runtime",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
+  "author": "Luciano Lee",
+  "license": "MIT",
   "sideEffects": false,
-
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,24 +15,37 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Luciano0322/signal-kernel.git"
+  },
+  "homepage": "https://github.com/Luciano0322/signal-kernel#readme",
+  "bugs": {
+    "url": "https://github.com/Luciano0322/signal-kernel/issues"
+  },
+  "keywords": [
+    "signals",
+    "reactivity",
+    "async",
+    "async-signal",
+    "reactive",
+    "state-management",
+    "runtime",
+    "scheduler"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
     "lint": "pnpm exec eslint src --ext .ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm exec tsc --noEmit",
     "pretest": "pnpm -F @signal-kernel/core build",
-    "test": "vitest run"
+    "test": "pnpm exec vitest run"
   },
   "dependencies": {
-    "@signal-kernel/core": "workspace:*"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.48.1",
-    "@typescript-eslint/parser": "^8.48.1",
-    "eslint": "^9.39.1",
-    "tsup": "^8.0.0",
-    "typescript": "^5.6.0",
-    "vitest": "^2.0.0"
+    "@signal-kernel/core": "^0.1.1"
   }
 }
