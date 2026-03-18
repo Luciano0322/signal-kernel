@@ -1,15 +1,13 @@
 {
   "name": "@signal-kernel/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "author": "Luciano Lee",
   "license": "MIT",
   "sideEffects": false,
-
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -17,13 +15,11 @@
       "require": "./dist/index.cjs"
     }
   },
-
   "files": [
     "dist",
     "README.md",
     "LICENSE"
   ],
-
   "repository": {
     "type": "git",
     "url": "https://github.com/Luciano0322/signal-kernel.git"
@@ -32,7 +28,6 @@
   "bugs": {
     "url": "https://github.com/Luciano0322/signal-kernel/issues"
   },
-
   "keywords": [
     "signals",
     "reactivity",
@@ -42,11 +37,9 @@
     "runtime",
     "scheduler"
   ],
-
   "publishConfig": {
     "access": "public"
   },
-
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
     "lint": "pnpm exec eslint src --ext .ts",
