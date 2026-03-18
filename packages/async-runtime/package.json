@@ -17,7 +17,7 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
-    "lint": "eslint src --ext .ts",
+    "lint": "pnpm exec eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "pretest": "pnpm -F @signal-kernel/core build",
     "test": "vitest run"

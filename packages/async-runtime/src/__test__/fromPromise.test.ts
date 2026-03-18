@@ -340,17 +340,12 @@ describe("fromPromise", () => {
   });
 
   it("cancel() 導致 promise 以 AbortError reject：不應設為 error，也不應呼叫 onError", async () => {
-    let rejectFn!: (err: unknown) => void;
-
     const makePromise = vi.fn(
       (ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((_resolve, reject) => {
-          rejectFn = reject;
-
           // 模擬 fetch 在 abort 時 reject AbortError
           ctx.signal.addEventListener("abort", () => {
             const abortErr =
-              // Node/DOM 環境下多半有 DOMException，沒有也沒關係
               typeof DOMException !== "undefined"
                 ? new DOMException("Aborted", "AbortError")
                 : Object.assign(new Error("Aborted"), { name: "AbortError" });
@@ -367,18 +362,14 @@ describe("fromPromise", () => {
 
     asyncSig.cancel("user-cancel");
 
-    // cancel 本身會設 cancelled
     expect(asyncSig.status()).toBe("cancelled");
 
-    // 讓 abort event 觸發的 reject 進入 microtask
     await tick();
 
-    // 仍應維持 cancelled，不應被當成 error
     expect(asyncSig.status()).toBe("cancelled");
     expect(asyncSig.error()).toBeUndefined();
     expect(onError).not.toHaveBeenCalled();
 
-    // 保守確認：makePromise 的 ctx.signal 應該已被 abort
     const ctx = makePromise.mock.calls[0]![0];
     expect(ctx.signal.aborted).toBe(true);
   });

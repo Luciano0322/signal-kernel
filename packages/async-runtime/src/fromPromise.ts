@@ -119,7 +119,7 @@ export function fromPromise<T, E = unknown>(
       setStatus("cancelled" as AsyncStatus);
     });
 
-    emit({ type: "cancel", token: currentToken, ts: Date.now(), reason });
+    emit({ type: "cancel", token: currentRunToken, ts: Date.now(), reason });
     options.onCancel?.(reason);
     if (currentController === controller) currentController = null;
   }

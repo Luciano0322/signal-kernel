@@ -174,7 +174,7 @@ describe("asyncSignal", () => {
         })
     );
 
-    const [_user, meta] = asyncSignal(makePromise, { onError });
+    const [, meta] = asyncSignal(makePromise, { onError });
 
     meta.cancel("cancel");
     await tick();
