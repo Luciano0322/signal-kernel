@@ -5,13 +5,14 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "declaration": true,
-    "emitDeclarationOnly": false,
+    "emitDeclarationOnly": true,
     "declarationMap": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "incremental": false,
     "composite": false,
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "outDir": "./dist"
   },
   "include": ["src/**/*.ts"],
   "exclude": [
