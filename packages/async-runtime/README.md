@@ -1,4 +1,9 @@
-# `@signal-kernel/async-runtime`
+<p align="center">
+  <img src="https://github.com/Luciano0322/signal-kernel/blob/main/assets/brands/async-icon.svg" alt="signal-kernel logo" width="120" />
+</p>
+<h1 align="center">@signal-kernel/async-runtime</h1>
+
+---
 
 ### Async primitives built on top of `@signal-kernel/core`
 
