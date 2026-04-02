@@ -1,10 +1,16 @@
-# @signal-kernel/core
-
+<p align="center">
+  <img src="https://github.com/Luciano0322/signal-kernel/tree/main/assets/brands/core-icon.svg" alt="signal-kernel logo" width="120" />
+</p>
+<h1 align="center">@signal-kernel/core</h1>
+<p align="center">
 A minimal, deterministic, fine-grained reactivity engine.
-
-Build reactive systems without frameworks — from UI adapters to async dataflow runtimes.
-
-> Think of this as a **reactive runtime kernel**, not a framework.
+</p>
+<p align="center">
+  Build reactive systems without frameworks — from UI adapters to async dataflow runtimes.
+</p>
+<p align="center">
+  Think of this as a <b>reactive runtime kernel</b>, not a framework.
+</p>
 
 ---
 
@@ -124,7 +130,7 @@ batch(() => {
 
 ## Scheduler Model
 
-![Two-phase scheduler](../../docs/scheduler.svg)
+![Two-phase scheduler](https://github.com/Luciano0322/signal-kernel/tree/main/docs/scheduler.svg)
 
 This runtime uses a **two-phase deterministic scheduler**:
 
@@ -137,11 +143,11 @@ This runtime uses a **two-phase deterministic scheduler**:
 
 ## Architecture Overview
 
-![Reactive Graph](../../docs/architecture.svg)
+![Reactive Graph](https://github.com/Luciano0322/signal-kernel/tree/main/docs/architecture.svg)
 
 For full details, see:
 
-👉 [Architecture Documentation](../../docs/architecture.md)
+👉 [Architecture Documentation](https://github.com/Luciano0322/signal-kernel/tree/main/docs/architecture.md)
 
 ---
 
