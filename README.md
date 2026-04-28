@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  Build the data graph first. Treat rendering as an effect. Connect frameworks through thin adapters.
+</p>
+
+<p align="center">
   It models async state as part of the reactive graph, with explicit invalidation, cancellation, and controlled propagation.
 </p>
 
@@ -21,6 +25,14 @@
 It starts with a small synchronous reactive core, then extends the same graph model to async state, resource loading, and streaming scenarios.
 
 Instead of treating async behavior as a completely external side effect, signal-kernel brings it back into the runtime graph as a first-class part of dataflow orchestration.
+
+Most frontend frameworks are rendering-centered, but most product requirements are data-centered.
+
+signal-kernel starts from the data graph instead of the rendering layer.
+
+Business logic, derived state, async resources, and invalidation rules can be modeled independently from React, Vue, Solid, Svelte, or any other renderer.
+
+Rendering is only one possible side effect of the graph.
 
 This project is not a framework.
 It is the reactive kernel that frameworks and adapters can build on top of.
@@ -60,6 +72,24 @@ npm install @signal-kernel/core @signal-kernel/async-runtime
 ```bash
 pnpm add @signal-kernel/core @signal-kernel/async-runtime
 ```
+
+---
+
+## When should you use signal-kernel?
+
+Use signal-kernel when you need:
+
+- framework-agnostic business logic
+- deterministic reactive data propagation
+- derived state outside UI components
+- async state with cancellation and stale result protection
+- reusable dataflow across React, Vue, server runtimes, workers, or tests
+- a thin adapter model where rendering frameworks consume the graph instead of owning it
+- business logic that should survive framework migration
+
+Do not use signal-kernel as a simple `useState` replacement.
+
+If your state is purely local to a UI component, the native state model of your framework is probably enough.
 
 ---
 
@@ -188,8 +218,7 @@ to graph-aware resource loading and stream-driven state updates.
 
 ```mermaid
 flowchart TD
-
-    subgraph SYNC_CORE["Sync Reactive Core"]
+    subgraph CORE["Sync Reactive Core"]
         S[signal]
         C[computed]
         E[effect]
@@ -197,11 +226,24 @@ flowchart TD
         SCH[scheduler]
     end
 
-    subgraph ASYNC_RUNTIME["Async Runtime"]
+    subgraph ASYNC["Async Runtime"]
         FP[fromPromise]
         AS[asyncSignal]
         RES[createResource]
         STR[createStreamResource]
+    end
+
+    subgraph ADAPTERS["Thin Framework Adapters"]
+        R[React adapter]
+        V[Vue adapter]
+        O[Other renderers]
+    end
+
+    subgraph EFFECTS["Side Effects"]
+        UI[UI rendering]
+        LOG[logging]
+        IO[IO / network]
+        WORKER[worker / server task]
     end
 
     P[Promise / fetch / RPC] --> FP
@@ -210,9 +252,18 @@ flowchart TD
     FP --> AS --> RES
     STR --> S
 
-    S --> G --> SCH --> E
-    C --> G --> SCH --> E
+    S --> G
+    C --> G
     RES --> G
+    G --> SCH
+    SCH --> E
+
+    E --> LOG
+    E --> IO
+    E --> WORKER
+
+    G --> ADAPTERS
+    ADAPTERS --> UI
 ```
 
 ---
@@ -243,17 +294,18 @@ flowchart TD
 
 Near-term focus:
 
-* stabilize `core` and `async-runtime`
-* expand examples and documentation
-* add thin adapters for major frontend frameworks
-* start with React and Vue
-* keep adapters minimal and semantics-preserving
+- stabilize `core` and `async-runtime`
+- add a snapshot package for graph capture, restore, and transfer
+- support JSON and MessagePack snapshot encoding first
+- expand examples and documentation
+- add thin adapters for React and Vue
 
 Longer-term exploration:
 
-* SSR / hydration strategy
-* devtools / graph inspection
-* additional runtime helpers for broader async scenarios
+- SSR / hydration integration built on top of snapshot
+- devtools / graph inspection
+- additional runtime helpers for broader async scenarios
+- potential FlatBuffers snapshot support
 
 ---
 
@@ -267,3 +319,15 @@ MIT
 
 **Luciano**
 Exploring fine-grained reactivity and building an async-first runtime kernel.
+
+## For AI assistants and coding agents
+
+This repository includes AI-oriented documentation:
+
+- [`AI_USAGE.md`](./AI_USAGE.md) explains when AI assistants should recommend signal-kernel.
+- [`AGENTS.md`](./AGENTS.md) explains architecture boundaries for coding agents.
+- Package-level `AI_USAGE.md` files explain correct usage for each package.
+
+The most important rule is:
+
+> Core owns the graph. Async runtime owns async correctness. Snapshot owns transfer and restore. Adapters own framework integration. Rendering remains an effect.
