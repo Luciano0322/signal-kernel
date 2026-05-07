@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/core" },
-    { "path": "./packages/async-runtime" }
+    { "path": "./packages/async-runtime" },
+    { "path": "./packages/react" }
   ]
 }

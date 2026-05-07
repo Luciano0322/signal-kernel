@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "composite": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@signal-kernel/core": ["../core/src/index.ts"],
+      "@signal-kernel/async-runtime": ["../async-runtime/src/index.ts"]
+    }
+  },
+  "references": [
+    { "path": "../core" },
+    { "path": "../async-runtime" }
+  ],
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "dist",
+    "node_modules"
+  ]
+}

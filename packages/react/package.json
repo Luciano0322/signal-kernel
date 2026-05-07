@@ -1,0 +1,61 @@
+{
+  "name": "@signal-kernel/react",
+  "version": "0.1.0",
+  "type": "module",
+  "author": "Luciano Lee",
+  "license": "MIT",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "AI_USAGE.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Luciano0322/signal-kernel.git"
+  },
+  "homepage": "https://github.com/Luciano0322/signal-kernel#readme",
+  "bugs": {
+    "url": "https://github.com/Luciano0322/signal-kernel/issues"
+  },
+  "keywords": [
+    "signals",
+    "react",
+    "reactivity",
+    "adapter",
+    "runtime"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
+    "lint": "pnpm exec eslint src --ext .ts",
+    "typecheck": "pnpm exec tsc --noEmit"
+  },
+  "dependencies": {
+    "@signal-kernel/core": "workspace:*",
+    "@signal-kernel/async-runtime": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}
