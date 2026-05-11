@@ -42,7 +42,8 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
     "lint": "pnpm exec eslint src --ext .ts",
-    "typecheck": "pnpm exec tsc --noEmit"
+    "typecheck": "pnpm exec tsc --noEmit",
+    "test": "pnpm exec vitest run"
   },
   "dependencies": {
     "@signal-kernel/core": "workspace:*",
