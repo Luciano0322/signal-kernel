@@ -12,12 +12,7 @@
     "incremental": false,
     "composite": false,
     "rootDir": "./src",
-    "outDir": "./dist",
-    "baseUrl": ".",
-    "paths": {
-      "@signal-kernel/core": ["../core/src/index.ts"],
-      "@signal-kernel/async-runtime": ["../async-runtime/src/index.ts"]
-    }
+    "outDir": "./dist"
   },
   "include": ["src/**/*.ts"],
   "exclude": [
