@@ -1,5 +1,11 @@
 # @signal-kernel/async-runtime
 
+## 0.2.2
+
+### Patch Changes
+
+- 293af0f: Add the initial React adapter package and fix async-runtime build output.
+
 ## 0.2.1
 
 ### Patch Changes
