@@ -38,6 +38,9 @@
     "runtime",
     "scheduler"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
     "lint": "pnpm exec eslint src --ext .ts",
