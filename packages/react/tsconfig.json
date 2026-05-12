@@ -13,16 +13,18 @@
     "rootDir": "./src",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
-      "@signal-kernel/core": ["../core/src/index.ts"]
+      "@signal-kernel/core": ["../core/src/index.ts"],
+      "@signal-kernel/async-runtime": ["../async-runtime/src/index.ts"]
     }
   },
-  "references": [{ "path": "../core" }],
+  "references": [
+    { "path": "../core" },
+    { "path": "../async-runtime" }
+  ],
   "include": ["src/**/*.ts"],
   "exclude": [
     "src/**/__tests__/**",
-    "src/**/__test__/**",
     "src/**/*.test.ts",
     "src/**/*.spec.ts",
     "dist",
