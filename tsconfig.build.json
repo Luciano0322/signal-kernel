@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/async-runtime" },
-    { "path": "./packages/react" }
+    { "path": "./packages/react" },
+    { "path": "./packages/vue" }
   ]
 }

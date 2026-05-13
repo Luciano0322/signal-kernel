@@ -180,10 +180,10 @@ Current companion packages:
 
 * `@signal-kernel/async-runtime`
 * `@signal-kernel/react`
+* `@signal-kernel/vue`
 
 Planned companion packages:
 
-* `@signal-kernel/vue`
 * snapshot and transfer packages
 
 ---

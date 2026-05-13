@@ -43,13 +43,14 @@ It is the reactive kernel that frameworks and adapters can build on top of.
 
 ## Current Status
 
-Today, the project includes three usable packages:
+Today, the project includes four usable packages:
 
 * **`@signal-kernel/core`** — the synchronous reactive kernel
 * **`@signal-kernel/async-runtime`** — async/runtime primitives built on top of the core
 * **`@signal-kernel/react`** — a thin React lifecycle adapter for reading existing graph values
+* **`@signal-kernel/vue`** — a thin Vue scope adapter for reading existing graph values
 
-The Vue adapter is the next planned adapter, following the same **thin-wrapper approach**: preserve runtime semantics instead of hiding them behind heavy framework-specific abstractions.
+Framework adapters follow the same **thin-wrapper approach**: preserve runtime semantics instead of hiding them behind heavy framework-specific abstractions.
 
 ---
 
@@ -60,7 +61,7 @@ The Vue adapter is the next planned adapter, following the same **thin-wrapper a
 | **@signal-kernel/core**            | Sync reactivity: signals, computed values, effects, dependency graph, scheduler                  |
 | **@signal-kernel/async-runtime**   | Async runtime primitives: `fromPromise`, `asyncSignal`, `createResource`, `createStreamResource` |
 | **@signal-kernel/react**           | Thin React adapter over existing core/runtime graph values                                       |
-| *(planned)* `@signal-kernel/vue`   | Thin Vue adapter over the core/runtime primitives                                                |
+| **@signal-kernel/vue**             | Thin Vue adapter over existing core/runtime graph values                                         |
 
 ---
 
@@ -299,7 +300,6 @@ Near-term focus:
 - add a snapshot package for graph capture, restore, and transfer
 - support JSON and MessagePack snapshot encoding first
 - expand examples and documentation
-- add a thin Vue adapter
 
 Longer-term exploration:
 
@@ -334,7 +334,7 @@ Design records:
 - [`docs/rfc-core-runtime.md`](./docs/rfc-core-runtime.md) records the adopted core runtime boundary.
 - [`docs/rfc-async-runtime.md`](./docs/rfc-async-runtime.md) records the adopted async-runtime boundary.
 - [`docs/rfc-react-adapter.md`](./docs/rfc-react-adapter.md) describes the React adapter design.
-- [`docs/rfc-vue-adapter.md`](./docs/rfc-vue-adapter.md) proposes the Vue adapter design.
+- [`docs/rfc-vue-adapter.md`](./docs/rfc-vue-adapter.md) describes the Vue adapter design.
 
 The most important rule is:
 

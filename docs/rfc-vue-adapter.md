@@ -1,6 +1,6 @@
 # RFC: `@signal-kernel/vue` Adapter
 
-Status: proposed
+Status: adopted initial design
 
 ## Problem Statement
 
