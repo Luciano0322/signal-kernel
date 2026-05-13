@@ -42,8 +42,8 @@ importers:
   packages/async-runtime:
     dependencies:
       '@signal-kernel/core':
-        specifier: ^0.1.1
-        version: 0.1.1
+        specifier: ^0.1.2
+        version: 0.1.2
 
   packages/core: {}
 
@@ -705,8 +705,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@signal-kernel/core@0.1.1':
-    resolution: {integrity: sha512-4vW67wCnUqnFI8A+XJ4b2eOQwGP3cn4MZ6SdtV1pNGPzK/Q7/uSGRHA1pd9499BkzO36GrqIcA9mcXl7ChO9yg==}
+  '@signal-kernel/core@0.1.2':
+    resolution: {integrity: sha512-U9jZ/CL92bujzuCruDJuovv3gSKraBA/DrDi+NVzwBPN4zpWSTTmzI9y4SWUm5z7I1nIZ7rQb9I6EUJtHDa+Fg==}
 
   '@types/conventional-commits-parser@5.0.2':
     resolution: {integrity: sha512-BgT2szDXnVypgpNxOK8aL5SGjUdaQbC++WZNjF1Qge3Og2+zhHj+RWhmehLhYyvQwqAmvezruVfOf8+3m74W+g==}
@@ -2517,7 +2517,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.53.3':
     optional: true
 
-  '@signal-kernel/core@0.1.1': {}
+  '@signal-kernel/core@0.1.2': {}
 
   '@types/conventional-commits-parser@5.0.2':
     dependencies:
