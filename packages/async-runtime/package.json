@@ -1,6 +1,6 @@
 {
   "name": "@signal-kernel/async-runtime",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "author": "Luciano Lee",
   "license": "MIT",
@@ -49,6 +49,6 @@
     "test": "pnpm exec vitest run"
   },
   "dependencies": {
-    "@signal-kernel/core": "^0.1.1"
+    "@signal-kernel/core": "^0.1.2"
   }
 }

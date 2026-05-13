@@ -1,5 +1,13 @@
 # @signal-kernel/async-runtime
 
+## 0.2.3
+
+### Patch Changes
+
+- a136d96: Adjust readme content
+- Updated dependencies [a136d96]
+  - @signal-kernel/core@0.1.2
+
 ## 0.2.2
 
 ### Patch Changes
