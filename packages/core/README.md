@@ -176,10 +176,15 @@ export { batch } from "./scheduler.js";
 
 `@signal-kernel/core` is the foundation of the Signal Kernel ecosystem.
 
-Future packages:
+Current companion packages:
 
-* async runtime
-* framework adapters
+* `@signal-kernel/async-runtime`
+* `@signal-kernel/react`
+
+Planned companion packages:
+
+* `@signal-kernel/vue`
+* snapshot and transfer packages
 
 ---
 
