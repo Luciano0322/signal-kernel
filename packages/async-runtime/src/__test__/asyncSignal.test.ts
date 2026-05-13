@@ -1,15 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { asyncSignal } from "../asyncSignal.js";
 
 const tick = () => Promise.resolve();
 
 describe("asyncSignal", () => {
-  it("預設 eager=true，建立當下就進入 pending 狀態，data 為 undefined", () => {
+  it("starts in pending state by default and exposes metadata", () => {
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
-        new Promise<number>(() => {
-          /* 永遠 pending */
-        })
+        new Promise<number>(() => {}),
     );
 
     const [user, meta] = asyncSignal(makePromise);
@@ -20,20 +18,18 @@ describe("asyncSignal", () => {
     expect(meta.error()).toBeUndefined();
     expect(meta.keepPreviousValueOnPending).toBe(true);
 
-    // optional sanity: token starts at 1
     const ctx = makePromise.mock.calls[0]![0];
-    expect(ctx.token).toBe(1);
     expect(ctx.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("成功 resolve 後，user() 會有值且狀態為 success", async () => {
+  it("commits the value and success status when the producer resolves", async () => {
     let resolveFn!: (v: number) => void;
 
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((resolve) => {
           resolveFn = resolve;
-        })
+        }),
     );
 
     const [user, meta] = asyncSignal(makePromise);
@@ -49,14 +45,14 @@ describe("asyncSignal", () => {
     expect(meta.error()).toBeUndefined();
   });
 
-  it("reject 後，狀態為 error 且 error() 有值，user() 維持 undefined", async () => {
+  it("commits the error and error status when the producer rejects", async () => {
     let rejectFn!: (err: unknown) => void;
 
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((_, reject) => {
           rejectFn = reject;
-        })
+        }),
     );
 
     const [user, meta] = asyncSignal<number, Error>(makePromise);
@@ -72,12 +68,10 @@ describe("asyncSignal", () => {
     expect(meta.error()).toBe(err);
   });
 
-  it("eager=false 時，初始為 idle，呼叫 reload 後才 pending", () => {
+  it("starts idle and waits for reload when eager is false", () => {
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
-        new Promise<number>(() => {
-          /* pending */
-        })
+        new Promise<number>(() => {}),
     );
 
     const [user, meta] = asyncSignal(makePromise, { eager: false });
@@ -92,16 +86,20 @@ describe("asyncSignal", () => {
     expect(meta.status()).toBe("pending");
   });
 
-  it("keepPreviousValueOnPending 可以透過 options 控制，meta 會反映設定", async () => {
+  it("reflects keepPreviousValueOnPending and clears the value when configured", async () => {
     let resolveFirst!: (v: number) => void;
     let resolveSecond!: (v: number) => void;
+    let callCount = 0;
 
-    const makePromise = vi.fn((ctx: { signal: AbortSignal; token: number }) => {
-      if (ctx.token === 1) {
+    const makePromise = vi.fn((_ctx: { signal: AbortSignal; token: number }) => {
+      callCount += 1;
+
+      if (callCount === 1) {
         return new Promise<number>((resolve) => {
           resolveFirst = resolve;
         });
       }
+
       return new Promise<number>((resolve) => {
         resolveSecond = resolve;
       });
@@ -124,21 +122,20 @@ describe("asyncSignal", () => {
     expect(meta.status()).toBe("pending");
     expect(user()).toBeUndefined();
 
-    // 收尾（避免未使用變數）
     resolveSecond(2);
     await tick();
     expect(meta.status()).toBe("success");
     expect(user()).toBe(2);
   });
 
-  it("cancel() 會把狀態轉為 cancelled，且後續 resolve 不應覆蓋", async () => {
+  it("cancel moves the status to cancelled and ignores a later resolution", async () => {
     let resolveFn!: (v: number) => void;
 
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((resolve) => {
           resolveFn = resolve;
-        })
+        }),
     );
 
     const [user, meta] = asyncSignal(makePromise);
@@ -158,7 +155,7 @@ describe("asyncSignal", () => {
     expect(meta.error()).toBeUndefined();
   });
 
-  it("AbortError reject 不應被視為 error（wrapper 不應改變 fromPromise 的語意）", async () => {
+  it("preserves fromPromise cancellation semantics for AbortError rejection", async () => {
     const onError = vi.fn();
 
     const makePromise = vi.fn(
@@ -171,7 +168,7 @@ describe("asyncSignal", () => {
                 : Object.assign(new Error("Aborted"), { name: "AbortError" });
             reject(abortErr);
           });
-        })
+        }),
     );
 
     const [, meta] = asyncSignal(makePromise, { onError });

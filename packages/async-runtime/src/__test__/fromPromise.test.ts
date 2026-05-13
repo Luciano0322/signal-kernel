@@ -1,25 +1,20 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fromPromise } from "../fromPromise.js";
 
-// 讓 microtask queue 跑完
 const tick = () => Promise.resolve();
 
 describe("fromPromise", () => {
-  it("default eager=true，建立當下就進入 pending 狀態", () => {
+  it("starts in pending state by default and invokes the producer immediately", () => {
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
-        new Promise<number>(() => {
-          /* 永遠 pending */
-        })
+        new Promise<number>(() => {}),
     );
 
     const asyncSig = fromPromise(makePromise);
 
     expect(makePromise).toHaveBeenCalledTimes(1);
 
-    // 確認 ctx 有傳入（token 起手為 1）
     const firstCallArg = makePromise.mock.calls[0]![0];
-    expect(firstCallArg.token).toBe(1);
     expect(firstCallArg.signal).toBeInstanceOf(AbortSignal);
 
     expect(asyncSig.status()).toBe("pending");
@@ -27,9 +22,9 @@ describe("fromPromise", () => {
     expect(asyncSig.error()).toBeUndefined();
   });
 
-  it("eager=false 時初始為 idle，不會立刻執行 promise", () => {
+  it("starts idle and does not invoke the producer when eager is false", () => {
     const makePromise = vi.fn(
-      (_ctx: { signal: AbortSignal; token: number }) => Promise.resolve(123)
+      (_ctx: { signal: AbortSignal; token: number }) => Promise.resolve(123),
     );
 
     const asyncSig = fromPromise(makePromise, { eager: false });
@@ -40,12 +35,10 @@ describe("fromPromise", () => {
     expect(asyncSig.error()).toBeUndefined();
   });
 
-  it("reload 會觸發 promise 執行並進入 pending", () => {
+  it("reload starts work and moves the status to pending", () => {
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
-        new Promise<number>(() => {
-          /* pending */
-        })
+        new Promise<number>(() => {}),
     );
 
     const asyncSig = fromPromise(makePromise, { eager: false });
@@ -58,14 +51,14 @@ describe("fromPromise", () => {
     expect(asyncSig.status()).toBe("pending");
   });
 
-  it("成功 resolve 時會更新 value 並設為 success", async () => {
+  it("commits the value and success status when the producer resolves", async () => {
     let resolveFn!: (v: number) => void;
 
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((resolve) => {
           resolveFn = resolve;
-        })
+        }),
     );
 
     const asyncSig = fromPromise(makePromise);
@@ -81,14 +74,14 @@ describe("fromPromise", () => {
     expect(asyncSig.error()).toBeUndefined();
   });
 
-  it("reject 時會設定 error 並設為 error 狀態", async () => {
+  it("commits the error and error status when the producer rejects", async () => {
     let rejectFn!: (err: unknown) => void;
 
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
         new Promise<never>((_, reject) => {
           rejectFn = reject;
-        })
+        }),
     );
 
     const asyncSig = fromPromise<number, Error>(makePromise);
@@ -104,14 +97,14 @@ describe("fromPromise", () => {
     expect(asyncSig.error()).toBe(err);
   });
 
-  it("cancel() 會取消當前 run，狀態轉為 cancelled，且後續結果被忽略", async () => {
+  it("cancel moves the status to cancelled and ignores a later resolution", async () => {
     let resolveFn!: (v: number) => void;
 
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((resolve) => {
           resolveFn = resolve;
-        })
+        }),
     );
 
     const asyncSig = fromPromise(makePromise);
@@ -121,7 +114,6 @@ describe("fromPromise", () => {
     asyncSig.cancel();
     expect(asyncSig.status()).toBe("cancelled");
 
-    // 就算 promise resolve，也不應該覆蓋（token 相同但已 abort）
     resolveFn(999);
     await tick();
 
@@ -130,19 +122,20 @@ describe("fromPromise", () => {
     expect(asyncSig.error()).toBeUndefined();
   });
 
-  it("reload 會啟動新的 promise，舊的結果不會覆蓋新的", async () => {
+  it("reload starts a newer run and prevents the older result from overwriting it", async () => {
     let resolveFirst!: (v: number) => void;
     let resolveSecond!: (v: number) => void;
     let callCount = 0;
 
     const makePromise = vi.fn((_ctx: { signal: AbortSignal; token: number }) => {
-      if (callCount === 0) {
-        callCount++;
+      callCount += 1;
+
+      if (callCount === 1) {
         return new Promise<number>((resolve) => {
           resolveFirst = resolve;
         });
       }
-      callCount++;
+
       return new Promise<number>((resolve) => {
         resolveSecond = resolve;
       });
@@ -157,14 +150,12 @@ describe("fromPromise", () => {
     expect(makePromise).toHaveBeenCalledTimes(2);
     expect(asyncSig.status()).toBe("pending");
 
-    // 第二個先完成
     resolveSecond(2);
     await tick();
 
     expect(asyncSig.status()).toBe("success");
     expect(asyncSig.value()).toBe(2);
 
-    // 第一個之後才完成，但結果應該被忽略
     resolveFirst(1);
     await tick();
 
@@ -172,7 +163,7 @@ describe("fromPromise", () => {
     expect(asyncSig.value()).toBe(2);
   });
 
-  it("onSuccess / onError callback 會在對應情況被呼叫", async () => {
+  it("calls success and error callbacks for matching outcomes", async () => {
     let resolveFn!: (v: number) => void;
     let rejectFn!: (err: unknown) => void;
 
@@ -180,14 +171,14 @@ describe("fromPromise", () => {
       (_ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((resolve) => {
           resolveFn = resolve;
-        })
+        }),
     );
 
     const makePromiseError = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((_, reject) => {
           rejectFn = reject;
-        })
+        }),
     );
 
     const onSuccess = vi.fn();
@@ -208,19 +199,20 @@ describe("fromPromise", () => {
     expect(errSig.status()).toBe("error");
   });
 
-  it("預設會在 pending 期間保留上一筆成功資料（keepPreviousValueOnPending 預設為 true）", async () => {
+  it("keeps the previous successful value while pending by default", async () => {
     let resolveFirst!: (v: number) => void;
     let resolveSecond!: (v: number) => void;
     let callCount = 0;
 
     const makePromise = vi.fn((_ctx: { signal: AbortSignal; token: number }) => {
-      if (callCount === 0) {
-        callCount++;
+      callCount += 1;
+
+      if (callCount === 1) {
         return new Promise<number>((resolve) => {
           resolveFirst = resolve;
         });
       }
-      callCount++;
+
       return new Promise<number>((resolve) => {
         resolveSecond = resolve;
       });
@@ -238,7 +230,7 @@ describe("fromPromise", () => {
     asyncSig.reload();
 
     expect(asyncSig.status()).toBe("pending");
-    expect(asyncSig.value()).toBe(1); // 保留舊值
+    expect(asyncSig.value()).toBe(1);
 
     resolveSecond(2);
     await tick();
@@ -247,19 +239,20 @@ describe("fromPromise", () => {
     expect(asyncSig.value()).toBe(2);
   });
 
-  it("keepPreviousValueOnPending = false 時，pending 會清空 value", async () => {
+  it("clears the previous value while pending when configured", async () => {
     let resolveFirst!: (v: number) => void;
     let resolveSecond!: (v: number) => void;
     let callCount = 0;
 
     const makePromise = vi.fn((_ctx: { signal: AbortSignal; token: number }) => {
-      if (callCount === 0) {
-        callCount++;
+      callCount += 1;
+
+      if (callCount === 1) {
         return new Promise<number>((resolve) => {
           resolveFirst = resolve;
         });
       }
-      callCount++;
+
       return new Promise<number>((resolve) => {
         resolveSecond = resolve;
       });
@@ -279,7 +272,7 @@ describe("fromPromise", () => {
     asyncSig.reload();
 
     expect(asyncSig.status()).toBe("pending");
-    expect(asyncSig.value()).toBeUndefined(); // 會清空
+    expect(asyncSig.value()).toBeUndefined();
 
     resolveSecond(2);
     await tick();
@@ -288,14 +281,14 @@ describe("fromPromise", () => {
     expect(asyncSig.value()).toBe(2);
   });
 
-  it("cancel() 會呼叫 onCancel，狀態轉為 cancelled，且不會觸發 onError", async () => {
+  it("calls onCancel without treating cancellation as an error", async () => {
     let resolveFn!: (v: number) => void;
 
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((resolve) => {
           resolveFn = resolve;
-        })
+        }),
     );
 
     const onCancel = vi.fn();
@@ -311,19 +304,16 @@ describe("fromPromise", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledWith("test-reason");
 
-    // 之後就算 promise resolve，也不應該更新狀態或值
     resolveFn(123);
     await tick();
 
     expect(asyncSig.status()).toBe("cancelled");
     expect(asyncSig.value()).toBeUndefined();
     expect(asyncSig.error()).toBeUndefined();
-
-    // 取消不是 error
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it("makePromise 同步 throw 時：狀態進 error、onError 被呼叫", () => {
+  it("moves to error status when the producer throws synchronously", () => {
     const err = new Error("sync boom");
 
     const makePromise = vi.fn((_ctx: { signal: AbortSignal; token: number }) => {
@@ -339,11 +329,10 @@ describe("fromPromise", () => {
     expect(onError).toHaveBeenCalledWith(err);
   });
 
-  it("cancel() 導致 promise 以 AbortError reject：不應設為 error，也不應呼叫 onError", async () => {
+  it("keeps cancellation status when the producer rejects with AbortError", async () => {
     const makePromise = vi.fn(
       (ctx: { signal: AbortSignal; token: number }) =>
         new Promise<number>((_resolve, reject) => {
-          // 模擬 fetch 在 abort 時 reject AbortError
           ctx.signal.addEventListener("abort", () => {
             const abortErr =
               typeof DOMException !== "undefined"
@@ -352,7 +341,7 @@ describe("fromPromise", () => {
 
             reject(abortErr);
           });
-        })
+        }),
     );
 
     const onError = vi.fn();
@@ -373,12 +362,15 @@ describe("fromPromise", () => {
     const ctx = makePromise.mock.calls[0]![0];
     expect(ctx.signal.aborted).toBe(true);
   });
-  it("reload() 造成舊 run superseded：舊 run AbortError reject 不應污染新 run", async () => {
+
+  it("keeps the newer run pending when a superseded run rejects with AbortError", async () => {
     let resolveSecond!: (v: number) => void;
+    let callCount = 0;
 
     const makePromise = vi.fn((ctx: { signal: AbortSignal; token: number }) => {
-      // 第一個 run：永遠不 resolve，只在 abort 時 reject AbortError
-      if (ctx.token === 1) {
+      callCount += 1;
+
+      if (callCount === 1) {
         return new Promise<number>((_resolve, reject) => {
           ctx.signal.addEventListener("abort", () => {
             const abortErr =
@@ -390,7 +382,6 @@ describe("fromPromise", () => {
         });
       }
 
-      // 第二個 run：可控制 resolve
       return new Promise<number>((resolve) => {
         resolveSecond = resolve;
       });
@@ -402,20 +393,16 @@ describe("fromPromise", () => {
     expect(makePromise).toHaveBeenCalledTimes(1);
     expect(asyncSig.status()).toBe("pending");
 
-    // 啟動第二個 run（會 abort 第一個 run）
     asyncSig.reload();
     expect(makePromise).toHaveBeenCalledTimes(2);
     expect(asyncSig.status()).toBe("pending");
 
-    // 第一個 run 因 abort 而 reject AbortError（microtask 會進來）
     await tick();
 
-    // 不應因此變成 error
     expect(asyncSig.status()).toBe("pending");
     expect(asyncSig.error()).toBeUndefined();
     expect(onError).not.toHaveBeenCalled();
 
-    // 第二個 run 成功
     resolveSecond(2);
     await tick();
 

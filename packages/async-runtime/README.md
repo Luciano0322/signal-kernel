@@ -13,7 +13,7 @@ It exposes four primary capabilities:
 
 * `createResource()` – A source-driven async state primitive similar to Solid's `createResource`, but built on a deterministic scheduler and cancellation model.
 * `createStreamResource()` – A source-driven streaming async primitive for progressive visible state with stable committed value semantics.
-* `fromPromise()` – Converts a function returning a Promise into a reactive async state.
+* `fromPromise()` – Converts a cancellable Promise producer into a reactive async state.
 * `asyncSignal()` – A convenient wrapper exposing both value and metadata (status, error, reload).
 
 This package does not depend on any frontend framework.
@@ -36,7 +36,7 @@ This runtime implements a deterministic, cancelable, fine-grained async system t
 Some highlights:
 
 * Automatic cancellation of outdated async work.
-* Stable `pending → success/error` state transitions for single-shot async tasks.
+* Stable `pending → success/error/cancelled` state transitions for single-shot async tasks.
 * Streaming-aware lifecycle support for progressive async output.
 * Integration with the core scheduler ensures deterministic execution order.
 * Work is isolated at the async node level (no global fetch manager).
@@ -58,9 +58,14 @@ A source-driven async primitive similar to Solid's `createResource`, but impleme
 ### Signature
 
 ```ts
+interface ResourceContext {
+  signal: AbortSignal;
+  token: number;
+}
+
 createResource<S, T, E = unknown>(
   source: () => S,
-  fetcher: (sourceValue: S) => Promise<T>,
+  fetcher: (sourceValue: S, ctx: ResourceContext) => Promise<T>,
   options?: ResourceOptions
 ): [() => T | undefined, AsyncMeta<E>]
 ```
@@ -82,8 +87,10 @@ const id = signal(1);
 
 const [user, meta] = createResource(
   id.get,
-  async (id) => {
-    const res = await fetch(`/api/user/${id}`);
+  async (id, ctx) => {
+    const res = await fetch(`/api/user/${id}`, {
+      signal: ctx.signal,
+    });
     return res.json();
   }
 );
@@ -153,7 +160,7 @@ createStreamResource<S, TChunk, TValue, E = unknown>(
     ctx: StreamContext<TChunk, TValue>
   ) => Promise<void> | void,
   options?: StreamResourceOptions<TChunk, TValue, E>
-): [() => TValue | undefined, StreamAsyncMeta<E, TValue, TChunk>]
+): [() => TValue | undefined, StreamAsyncMeta<E, TValue>]
 ```
 
 ### Core semantics
@@ -231,7 +238,7 @@ createEffect(() => {
 
 ```ts
 fromPromise<T, E = unknown>(
-  makePromise: () => Promise<T>,
+  makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
   options?: FromPromiseOptions
 ): AsyncSignal<T, E>
 ```
@@ -241,7 +248,7 @@ fromPromise<T, E = unknown>(
 `fromPromise()` turns an async function into an async signal, exposing:
 
 * `value(): T | undefined`
-* `status(): "idle" | "pending" | "success" | "error"`
+* `status(): "idle" | "pending" | "success" | "error" | "cancelled"`
 * `error(): E | undefined`
 * `reload()`
 * `cancel(reason?)`
@@ -257,8 +264,10 @@ It internally:
 ```ts
 import { fromPromise } from "@signal-kernel/async-runtime";
 
-const user = fromPromise(async () => {
-  const res = await fetch("/api/user");
+const user = fromPromise(async (ctx) => {
+  const res = await fetch("/api/user", {
+    signal: ctx.signal,
+  });
   return res.json();
 });
 
@@ -280,7 +289,7 @@ createEffect(() => {
 
 ```ts
 asyncSignal<T, E = unknown>(
-  makePromise: () => Promise<T>,
+  makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
   options?: FromPromiseOptions
 ): [() => T | undefined, AsyncMeta<E>]
 ```
@@ -301,8 +310,10 @@ asyncSignal<T, E = unknown>(
 ### Example
 
 ```ts
-const [user, meta] = asyncSignal(async () => {
-  const res = await fetch("/api/user");
+const [user, meta] = asyncSignal(async (ctx) => {
+  const res = await fetch("/api/user", {
+    signal: ctx.signal,
+  });
   return res.json();
 });
 
@@ -331,7 +342,7 @@ The package exports the async-related types:
 * `StreamInterruptionPolicy`
 * `StreamContext<TChunk, TValue>`
 * `StreamResourceOptions<TChunk, TValue, E>`
-* `StreamAsyncMeta<E, TValue, TChunk>`
+* `StreamAsyncMeta<E, TValue>`
 
 These allow you to annotate higher-level abstractions or build your own async primitives.
 

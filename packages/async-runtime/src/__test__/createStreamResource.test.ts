@@ -114,7 +114,6 @@ describe("createStreamResource", () => {
     expect(meta.status()).toBe("pending");
     expect(value()).toBe("");
 
-    // stale emission from old run should be ignored
     ctxA.emit("stale");
     expect(value()).toBe("");
 
@@ -319,7 +318,6 @@ describe("createStreamResource", () => {
     expect(meta.status()).toBe("streaming");
 
     sourceHolder.current = "b";
-    // re-enter through reload since source is not a signal in this test
     meta.reload();
 
     expect(meta.status()).toBe("pending");
@@ -328,7 +326,6 @@ describe("createStreamResource", () => {
     reject(new Error("stale failure"));
     await flushMicrotasks();
 
-    // stale failure from old run should not overwrite current run
     expect(meta.status()).toBe("pending");
     expect(meta.error()).toBeUndefined();
 
