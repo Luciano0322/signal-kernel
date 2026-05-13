@@ -67,3 +67,12 @@ This allows:
 * async runtimes
 * UI adapters
 * server pipelines
+
+---
+
+## Related Design Records
+
+* [Core Runtime RFC](./rfc-core-runtime.md)
+* [Async Runtime RFC](./rfc-async-runtime.md)
+* [React Adapter RFC](./rfc-react-adapter.md)
+* [Vue Adapter RFC](./rfc-vue-adapter.md)

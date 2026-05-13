@@ -43,12 +43,13 @@ It is the reactive kernel that frameworks and adapters can build on top of.
 
 ## Current Status
 
-Today, the project includes two usable packages:
+Today, the project includes three usable packages:
 
 * **`@signal-kernel/core`** — the synchronous reactive kernel
 * **`@signal-kernel/async-runtime`** — async/runtime primitives built on top of the core
+* **`@signal-kernel/react`** — a thin React lifecycle adapter for reading existing graph values
 
-React and Vue adapters are planned next, with a **thin-wrapper approach** that preserves the runtime semantics instead of hiding them behind heavy framework-specific abstractions.
+The Vue adapter is the next planned adapter, following the same **thin-wrapper approach**: preserve runtime semantics instead of hiding them behind heavy framework-specific abstractions.
 
 ---
 
@@ -58,7 +59,7 @@ React and Vue adapters are planned next, with a **thin-wrapper approach** that p
 | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
 | **@signal-kernel/core**            | Sync reactivity: signals, computed values, effects, dependency graph, scheduler                  |
 | **@signal-kernel/async-runtime**   | Async runtime primitives: `fromPromise`, `asyncSignal`, `createResource`, `createStreamResource` |
-| *(planned)* `@signal-kernel/react` | Thin React adapter over the core/runtime primitives                                              |
+| **@signal-kernel/react**           | Thin React adapter over existing core/runtime graph values                                       |
 | *(planned)* `@signal-kernel/vue`   | Thin Vue adapter over the core/runtime primitives                                                |
 
 ---
@@ -298,7 +299,7 @@ Near-term focus:
 - add a snapshot package for graph capture, restore, and transfer
 - support JSON and MessagePack snapshot encoding first
 - expand examples and documentation
-- add thin adapters for React and Vue
+- add a thin Vue adapter
 
 Longer-term exploration:
 
@@ -327,6 +328,13 @@ This repository includes AI-oriented documentation:
 - [`AI_USAGE.md`](./AI_USAGE.md) explains when AI assistants should recommend signal-kernel.
 - [`AGENTS.md`](./AGENTS.md) explains architecture boundaries for coding agents.
 - Package-level `AI_USAGE.md` files explain correct usage for each package.
+
+Design records:
+
+- [`docs/rfc-core-runtime.md`](./docs/rfc-core-runtime.md) records the adopted core runtime boundary.
+- [`docs/rfc-async-runtime.md`](./docs/rfc-async-runtime.md) records the adopted async-runtime boundary.
+- [`docs/rfc-react-adapter.md`](./docs/rfc-react-adapter.md) describes the React adapter design.
+- [`docs/rfc-vue-adapter.md`](./docs/rfc-vue-adapter.md) proposes the Vue adapter design.
 
 The most important rule is:
 

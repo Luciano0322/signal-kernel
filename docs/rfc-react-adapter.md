@@ -571,6 +571,55 @@ function AssistantResponse() {
 
 ---
 
+## Testing Strategy
+
+The adapter should be developed with vertical red-green-refactor cycles.
+
+Do not write the full test matrix first and then implement the adapter in one pass. Add one public behavior test, make it fail, write the smallest implementation that passes, then continue.
+
+Tests should verify behavior through the public adapter APIs. They should not assert private helper calls, internal React hook structure, or signal-kernel graph internals.
+
+### `useSignalValue()`
+
+* Initial snapshot comes from `peek()`.
+* Signal updates cause React to receive a fresh snapshot.
+* Unmounting stops the adapter subscription.
+* Unmounting does not dispose the source signal.
+
+### `useComputedValue()`
+
+* Existing computed values can be read.
+* Dependency changes refresh the rendered snapshot.
+* The adapter does not create a new computed value from a function.
+
+### `useReactive()`
+
+* Multiple existing graph reads can be observed together.
+* Updating any dependency refreshes the rendered snapshot.
+* Unmounting stops the adapter subscription.
+
+### `useResource()`
+
+* Resource value changes re-render React.
+* `meta.status()` changes re-render React.
+* `meta.error()` changes re-render React.
+* Metadata-only transitions re-render even if the value is unchanged.
+* Unmounting does not call `meta.cancel()`.
+
+### `useStreamResource()`
+
+* Visible stream value changes re-render React.
+* `meta.status()` changes re-render React.
+* `meta.error()` changes re-render React.
+* Metadata-only transitions re-render even if the value is unchanged.
+* Unmounting does not call `meta.cancel()`.
+
+### Effect wrappers
+
+The initial adapter does not include React-specific wrappers around `createEffect()`, so adapter tests should not introduce component-scoped graph effect behavior as part of the public surface.
+
+---
+
 ## Open Questions
 
 ### 1. Should short names be used?
