@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>signal-kernel search race condition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-zinc-950 text-zinc-100">
+    <main class="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-6">
+      <header class="space-y-2">
+        <p class="text-sm font-medium uppercase tracking-[0.2em] text-cyan-300">signal-kernel example</p>
+        <h1 class="text-3xl font-semibold text-white">Search race condition</h1>
+        <p class="max-w-3xl text-sm leading-6 text-zinc-300">
+          A naive Promise flow can let an older slow result overwrite the newest search.
+          The React and Vue panels read the same signal-kernel graph, where async-runtime owns latest-wins behavior.
+        </p>
+      </header>
+
+      <section class="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <div class="flex flex-col gap-3 md:flex-row md:items-end">
+          <label class="flex flex-1 flex-col gap-2 text-sm text-zinc-300">
+            Search query
+            <input
+              id="search-input"
+              class="h-10 rounded-md border border-zinc-700 bg-zinc-950 px-3 text-base text-white outline-none focus:border-cyan-400"
+              placeholder="Try a -> ab -> abc"
+            />
+          </label>
+          <div class="flex gap-2">
+            <button
+              id="race-button"
+              class="h-10 rounded-md bg-cyan-400 px-4 text-sm font-semibold text-zinc-950 hover:bg-cyan-300"
+              type="button"
+            >
+              Run race
+            </button>
+            <button
+              id="clear-button"
+              class="h-10 rounded-md border border-zinc-700 px-4 text-sm font-semibold text-zinc-200 hover:border-zinc-500"
+              type="button"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid gap-4 lg:grid-cols-3">
+        <div id="naive-root"></div>
+        <div id="react-root"></div>
+        <div id="vue-root"></div>
+      </section>
+
+      <section class="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-base font-semibold text-white">Request log</h2>
+          <span class="text-xs text-zinc-400">Forced delays: a 700ms, ab 300ms, abc 100ms</span>
+        </div>
+        <ol id="event-log" class="space-y-2 text-sm"></ol>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

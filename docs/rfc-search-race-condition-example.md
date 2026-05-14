@@ -1,6 +1,6 @@
 # RFC: Search Race Condition Example
 
-Status: proposed
+Status: accepted
 
 ## Problem Statement
 
@@ -52,9 +52,9 @@ The example should use a fake search API that returns results with intentionally
 Suggested deterministic timings:
 
 ```txt
-"a"   -> resolves after 700ms
-"ab"  -> resolves after 300ms
-"abc" -> resolves after 100ms
+"a"   -> resolves after 3000ms
+"ab"  -> resolves after 2000ms
+"abc" -> resolves after 1000ms
 ```
 
 When a user quickly enters:
@@ -78,19 +78,27 @@ examples/
   search-race-condition/
     README.md
     package.json
+    vite.config.ts
     src/
+      dom/
+        escapeHtml.ts
       graph/
         fakeSearchApi.ts
         searchGraph.ts
+        searchGraph.test.ts
+      naive/
+        naivePanel.ts
       react/
-        App.tsx
-        main.tsx
+        ReactPanel.tsx
       vue/
-        App.vue
-        main.ts
+        VuePanel.ts
+      eventLog.ts
+      main.tsx
 ```
 
-The exact build tool can be chosen during implementation, but the example should keep graph code separate from framework views.
+The example uses one Vite page so the naive, React, and Vue panels can be compared side by side against the same forced race sequence.
+
+The graph code must remain separate from framework views.
 
 ---
 
@@ -245,13 +253,14 @@ Required graph-level tests:
 
 * fast latest request wins when earlier requests resolve later
 * stale results do not overwrite current results
-* pending state can retain previous successful value when configured
 * cancellation or stale protection does not surface as a normal error
 
 Framework-level checks should be lighter:
 
-* React example builds and renders resource metadata through the React adapter
-* Vue example builds and renders resource metadata through the Vue adapter
+* the example typechecks
+* the example builds with both React and Vue mounted on the same page
+* React renders resource metadata through the React adapter
+* Vue renders resource metadata through the Vue adapter
 * neither framework view owns latest-wins logic
 
 Tests should not inspect private async-runtime tokens or internal graph structures.
@@ -274,12 +283,6 @@ The README should avoid describing `signal-kernel` as a React or Vue state libra
 
 ## Open Questions
 
-### Should React and Vue run in one app or separate apps?
-
-A single app can make side-by-side comparison easier, but separate apps keep each framework integration simpler.
-
-The implementation can decide based on build-tool friction.
-
 ### Should the event log live in the graph?
 
 The request event log is useful for teaching resolution order.
@@ -290,8 +293,10 @@ If it becomes part of the example, it should remain framework-neutral so React a
 
 ## Decision
 
-Build a search race-condition example around a shared framework-neutral graph.
+Build a single-page search race-condition example around a shared framework-neutral graph.
 
 Use React and Vue only as rendering adapters over that graph.
 
 The example should prove that `@signal-kernel/async-runtime` owns stale-result prevention and latest-wins behavior, while framework adapters only expose graph state to UI.
+
+Use Vite aliases for local workspace packages so the example resolves one shared `@signal-kernel/core` module instance during development, tests, and builds.
