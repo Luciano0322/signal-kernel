@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/Luciano0322/signal-kernel/blob/main/assets/brands/adapter-vue-icon" alt="adapter vue logo" width="120" />
+  <img src="https://github.com/Luciano0322/signal-kernel/blob/main/assets/brands/adapter-vue-icon.svg" alt="adapter vue logo" width="120" />
 </p>
 <h1 align="center">@signal-kernel/vue</h1>
 
