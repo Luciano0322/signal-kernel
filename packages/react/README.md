@@ -7,10 +7,10 @@ This package lets React components observe existing `@signal-kernel/core` graph 
 ## Install
 
 ```sh
-pnpm add @signal-kernel/react @signal-kernel/core react react-dom
+pnpm add @signal-kernel/react @signal-kernel/core @signal-kernel/async-runtime
 ```
 
-Async helpers are exported from `@signal-kernel/react` and expect `@signal-kernel/async-runtime` to be installed by applications that use resources.
+`react` and `react-dom` are peer dependencies and are expected to already exist in the React application.
 
 ## Core Bridge
 
@@ -38,7 +38,12 @@ export function Counter() {
 Use `useReactive()` to read an existing reactive scope from React. Derived graph logic should still live in `computed()` or other runtime primitives.
 
 ```tsx
+import { computed, signal } from "@signal-kernel/core";
 import { useReactive } from "@signal-kernel/react";
+
+const count = signal(1);
+const doubled = computed(() => count.get() * 2);
+const status = signal("idle");
 
 function Dashboard() {
   const state = useReactive(() => ({
@@ -54,7 +59,22 @@ function Dashboard() {
 ## Async Bridge
 
 ```tsx
+import { signal } from "@signal-kernel/core";
+import { createResource } from "@signal-kernel/async-runtime";
 import { useResource } from "@signal-kernel/react";
+
+const userId = signal("1");
+
+const userResource = createResource(
+  userId.get,
+  async (id, ctx) => {
+    const response = await fetch(`/api/users/${id}`, {
+      signal: ctx.signal,
+    });
+
+    return response.json() as Promise<{ name: string }>;
+  },
+);
 
 function UserView() {
   const [user, meta] = useResource(userResource);
@@ -66,7 +86,7 @@ function UserView() {
 }
 ```
 
-The async hooks observe resource value and metadata getters so metadata-only transitions can re-render React. They do not add caching, retry, cancellation, or Suspense policy.
+The async hooks consume resource tuples created by `@signal-kernel/async-runtime`. They observe resource value and metadata getters so metadata-only transitions can re-render React. They do not add caching, retry, cancellation, or Suspense policy.
 
 ## Boundary
 
