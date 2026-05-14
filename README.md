@@ -2,6 +2,13 @@
   <img src="./assets/brands/signal-kernel-icon-transparent.svg" alt="signal-kernel logo" width="120" />
 </p>
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/@signal-kernel/core"><img alt="@signal-kernel/core" src="https://img.shields.io/npm/v/@signal-kernel/core?label=core"></a>
+  <a href="https://www.npmjs.com/package/@signal-kernel/async-runtime"><img alt="@signal-kernel/async-runtime" src="https://img.shields.io/npm/v/@signal-kernel/async-runtime?label=async-runtime"></a>
+  <a href="https://www.npmjs.com/package/@signal-kernel/react"><img alt="@signal-kernel/react" src="https://img.shields.io/npm/v/@signal-kernel/react?label=react"></a>
+  <a href="https://www.npmjs.com/package/@signal-kernel/vue"><img alt="@signal-kernel/vue" src="https://img.shields.io/npm/v/@signal-kernel/vue?label=vue"></a>
+</p>
+
 <h1 align="center">signal-kernel</h1>
 
 <p align="center">
@@ -45,10 +52,10 @@ It is the reactive kernel that frameworks and adapters can build on top of.
 
 Today, the project includes four usable packages:
 
-* **`@signal-kernel/core`** — the synchronous reactive kernel
-* **`@signal-kernel/async-runtime`** — async/runtime primitives built on top of the core
-* **`@signal-kernel/react`** — a thin React lifecycle adapter for reading existing graph values
-* **`@signal-kernel/vue`** — a thin Vue scope adapter for reading existing graph values
+* **`@signal-kernel/core`** - the synchronous reactive kernel
+* **`@signal-kernel/async-runtime`** - async/runtime primitives built on top of core
+* **`@signal-kernel/react`** - a thin React lifecycle adapter for reading existing graph values
+* **`@signal-kernel/vue`** - a thin Vue scope adapter for reading existing graph values
 
 Framework adapters follow the same **thin-wrapper approach**: preserve runtime semantics instead of hiding them behind heavy framework-specific abstractions.
 
@@ -56,12 +63,12 @@ Framework adapters follow the same **thin-wrapper approach**: preserve runtime s
 
 ## Packages Overview
 
-| Package                            | Description                                                                                      |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------ |
-| **@signal-kernel/core**            | Sync reactivity: signals, computed values, effects, dependency graph, scheduler                  |
-| **@signal-kernel/async-runtime**   | Async runtime primitives: `fromPromise`, `asyncSignal`, `createResource`, `createStreamResource` |
-| **@signal-kernel/react**           | Thin React adapter over existing core/runtime graph values                                       |
-| **@signal-kernel/vue**             | Thin Vue adapter over existing core/runtime graph values                                         |
+| Package                          | npm                                                               | Description                                                                                      |
+| -------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **@signal-kernel/core**          | [npm](https://www.npmjs.com/package/@signal-kernel/core)          | Sync reactivity: signals, computed values, effects, dependency graph, scheduler                  |
+| **@signal-kernel/async-runtime** | [npm](https://www.npmjs.com/package/@signal-kernel/async-runtime) | Async runtime primitives: `fromPromise`, `asyncSignal`, `createResource`, `createStreamResource` |
+| **@signal-kernel/react**         | [npm](https://www.npmjs.com/package/@signal-kernel/react)         | Thin React adapter for reading existing signal-kernel graph values in React                      |
+| **@signal-kernel/vue**           | [npm](https://www.npmjs.com/package/@signal-kernel/vue)           | Thin Vue adapter for exposing existing signal-kernel graph values as readonly Vue refs           |
 
 ---
 
@@ -74,6 +81,20 @@ npm install @signal-kernel/core @signal-kernel/async-runtime
 ```bash
 pnpm add @signal-kernel/core @signal-kernel/async-runtime
 ```
+
+React adapter:
+
+```bash
+pnpm add @signal-kernel/react @signal-kernel/core @signal-kernel/async-runtime
+```
+
+Vue adapter:
+
+```bash
+pnpm add @signal-kernel/vue @signal-kernel/core @signal-kernel/async-runtime
+```
+
+`react`, `react-dom`, and `vue` are peer dependencies of their adapter packages and are expected to already exist in framework applications.
 
 ---
 
@@ -158,8 +179,14 @@ import { createResource } from "@signal-kernel/async-runtime";
 const userId = signal(1);
 
 const [user, meta] = createResource(
-  () => userId.get(),
-  (id) => fetch(`/api/user/${id}`).then((r) => r.json())
+  userId.get,
+  async (id, ctx) => {
+    const response = await fetch(`/api/user/${id}`, {
+      signal: ctx.signal,
+    });
+
+    return response.json();
+  }
 );
 
 userId.set(2);
@@ -178,24 +205,25 @@ Behavior:
 ```ts
 import { createStreamResource } from "@signal-kernel/async-runtime";
 
-// Example shape only — adapt to your actual API
-const [messages, meta] = createStreamResource(() => {
-  const socket = new WebSocket("wss://example.com/messages");
+const [text, meta] = createStreamResource(
+  () => "Explain signals simply",
+  async (_prompt, ctx) => {
+    for (const chunk of ["Signals ", "track ", "dependencies."]) {
+      if (ctx.isCancelled()) return;
+      ctx.emit(chunk);
+    }
 
-  return {
-    subscribe(emit, error, done) {
-      socket.onmessage = (event) => emit(JSON.parse(event.data));
-      socket.onerror = error;
-      socket.onclose = done;
-
-      return () => socket.close();
-    },
-  };
-});
+    ctx.done();
+  },
+  {
+    initialValue: "",
+    reduce: (current = "", chunk) => current + chunk,
+  }
+);
 ```
 
 Use `createStreamResource()` when the source is not a one-shot Promise,
-but an ongoing stream or subscription-like async producer.
+but an ongoing stream or incremental async producer.
 
 ---
 
@@ -203,12 +231,9 @@ but an ongoing stream or subscription-like async producer.
 
 ```text
 fromPromise()
-  ↓
-asyncSignal()
-  ↓
-createResource()
-  ↓
-createStreamResource()
+  -> asyncSignal()
+  -> createResource()
+  -> createStreamResource()
 ```
 
 This gives you a progression from one-shot Promise handling
@@ -289,6 +314,13 @@ flowchart TD
 | `asyncSignal(fetcher, options?)`            | Async operation with status, error, reload, and cancel metadata        |
 | `createResource(source, fetcher, options?)` | Source-driven async resource with switchMap-style behavior             |
 | `createStreamResource(source, options?)`    | Graph-aware resource for streaming or subscription-style async sources |
+
+### Framework Adapters
+
+| Package                | APIs                                                                                    | Description                                        |
+| ---------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `@signal-kernel/react` | `useSignalValue`, `useComputedValue`, `useReactive`, `useResource`, `useStreamResource` | Reads existing graph values from React components  |
+| `@signal-kernel/vue`   | `useSignalValue`, `useComputedValue`, `useReactive`, `useResource`, `useStreamResource` | Exposes existing graph values as readonly Vue refs |
 
 ---
 
