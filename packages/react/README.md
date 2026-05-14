@@ -1,4 +1,9 @@
-# @signal-kernel/react
+<p align="center">
+  <img src="https://github.com/Luciano0322/signal-kernel/blob/main/assets/brands/adapter-react-icon" alt="adapter react logo" width="120" />
+</p>
+<h1 align="center">@signal-kernel/react</h1>
+
+---
 
 React lifecycle adapter for `signal-kernel`.
 
