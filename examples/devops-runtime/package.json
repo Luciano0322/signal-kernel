@@ -1,0 +1,28 @@
+{
+  "name": "@signal-kernel/example-devops-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@signal-kernel/async-runtime": "workspace:*",
+    "@signal-kernel/core": "workspace:*",
+    "@signal-kernel/react": "workspace:*",
+    "@signal-kernel/vue": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
+  }
+}

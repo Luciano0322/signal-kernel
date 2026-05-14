@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>signal-kernel DevOps runtime</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-zinc-950 text-zinc-100">
+    <main class="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-6">
+      <header class="space-y-2">
+        <p class="text-sm font-medium uppercase tracking-[0.2em] text-emerald-300">signal-kernel example</p>
+        <h1 class="text-3xl font-semibold text-white">DevOps runtime graph</h1>
+        <p class="max-w-3xl text-sm leading-6 text-zinc-300">
+          A small deployment control-plane model. Fake CI, artifact, rollout, and health inputs feed one
+          framework-neutral graph; React and Vue only render derived operational decisions.
+        </p>
+      </header>
+
+      <section class="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <div class="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+          <label class="flex flex-col gap-2 text-sm text-zinc-300">
+            Commit
+            <select
+              id="commit-select"
+              class="h-10 rounded-md border border-zinc-700 bg-zinc-950 px-3 text-base text-white outline-none focus:border-emerald-400"
+            ></select>
+          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              id="deploy-button"
+              class="h-10 rounded-md bg-emerald-400 px-4 text-sm font-semibold text-zinc-950 hover:bg-emerald-300"
+              type="button"
+            >
+              Deploy staging
+            </button>
+            <button
+              id="approve-button"
+              class="h-10 rounded-md border border-zinc-700 px-4 text-sm font-semibold text-zinc-200 hover:border-zinc-500"
+              type="button"
+            >
+              Approve promotion
+            </button>
+            <button
+              id="cancel-button"
+              class="h-10 rounded-md border border-rose-700 px-4 text-sm font-semibold text-rose-200 hover:border-rose-500"
+              type="button"
+            >
+              Cancel rollout
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid gap-4 lg:grid-cols-2">
+        <div id="react-root"></div>
+        <div id="vue-root"></div>
+      </section>
+
+      <section class="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h2 class="text-base font-semibold text-white">Operational event log</h2>
+          <span class="text-xs text-zinc-400">CI, artifact, rollout, health, and actions</span>
+        </div>
+        <ol id="event-log" class="space-y-2 text-sm"></ol>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
