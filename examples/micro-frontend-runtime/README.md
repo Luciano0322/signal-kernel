@@ -22,6 +22,39 @@ Raw writable signals remain private to `src/shared-graph/`.
 
 React and Vue do not call each other. They communicate by reading graph state through adapters and by requesting state changes through graph actions.
 
+## Selector Contract Note
+
+This example introduces a local `createSelector()` helper in `src/shared-graph/selector.ts`.
+
+The helper intentionally primes a computed value before exposing it as part of the public graph contract:
+
+```ts
+export function createSelector<T>(read: () => T): Readable<T> {
+  const memo = computed(read);
+
+  memo.get();
+
+  return {
+    get: memo.get,
+    peek: memo.peek,
+  };
+}
+```
+
+This is a deliberate graph-contract decision.
+
+React's adapter reads `peek()` for the initial `useSyncExternalStore` snapshot. A lazy computed value may not have a cached value until `get()` has run at least once. If a public selector exposes an unprimed computed, a React island can see `undefined` on first render even though the selector's logical type is non-null.
+
+The shared graph library takes responsibility for that boundary:
+
+* public selectors should be adapter-safe
+* public selectors should have a valid initial snapshot
+* public selectors should provide stable snapshot identity when possible
+* writable signals remain private
+* islands should not need to know whether a selector is backed by a signal or a computed value
+
+This helper is local to the example for now. It is not yet a public `@signal-kernel/core` API. The example keeps it local so the selector contract can be tested before promoting the pattern into the runtime packages.
+
 ## Architecture
 
 ```mermaid
@@ -139,6 +172,7 @@ src/
     commerceGraph.ts
     commerceGraph.test.ts
     graphContract.ts
+    selector.ts
     fakeInventoryApi.ts
     fakePricingApi.ts
     fixtures.ts

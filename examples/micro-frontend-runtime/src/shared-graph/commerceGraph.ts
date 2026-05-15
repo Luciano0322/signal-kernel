@@ -4,6 +4,7 @@ import { accounts, catalog, getAccount, getCatalogOrder } from "./fixtures";
 import { fakeInventoryApi } from "./fakeInventoryApi";
 import { fakePricingApi } from "./fakePricingApi";
 import { createRequestKey } from "./requestKey";
+import { createSelector } from "./selector";
 import type { CommerceGraphContract } from "./graphContract";
 import type {
   AccountId,
@@ -23,8 +24,6 @@ import type {
 let nextGraphId = 0;
 
 function asReadable<T>(source: Readable<T>): Readable<T> {
-  source.get();
-
   return {
     get: source.get,
     peek: source.peek,
@@ -56,10 +55,10 @@ export function createCommerceGraph(): CommerceGraphContract {
   const selectedRegion = signal<Region>("us-east");
   const cartItems = signal<CartItem[]>([]);
   const eventLog = signal<ShellEvent[]>([]);
-  const catalogSelector = computed(() => readonlyRecords(catalog));
-  const accountsSelector = computed(() => readonlyRecords(accounts));
-  const cartItemsSelector = computed(() => readonlyRecords(cartItems.get()));
-  const eventLogSelector = computed(() => readonlyRecords(eventLog.get()));
+  const catalogSelector = createSelector(() => readonlyRecords(catalog));
+  const accountsSelector = createSelector(() => readonlyRecords(accounts));
+  const cartItemsSelector = createSelector(() => readonlyRecords(cartItems.get()));
+  const eventLogSelector = createSelector(() => readonlyRecords(eventLog.get()));
 
   const graphId = `commerce-graph-${++nextGraphId}`;
   let nextEventId = 0;
