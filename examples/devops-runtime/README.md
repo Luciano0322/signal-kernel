@@ -18,6 +18,124 @@ The graph owns:
 
 React and Vue only render the graph through thin adapters.
 
+## Runtime Graph
+
+The example is organized around `createDevopsGraph()`. The graph separates source signals, async resources, stream resources, derived decisions, and actions.
+
+```mermaid
+flowchart TD
+  Actions["Graph actions<br/>selectCommit / startDeployment / approvePromotion / cancelDeployment"]
+
+  subgraph Signals["Source signals"]
+    selectedCommit["selectedCommit"]
+    targetEnvironment["targetEnvironment"]
+    manualApproval["manualApproval"]
+    rolloutIntent["rolloutIntent"]
+    eventLog["eventLog"]
+  end
+
+  subgraph Resources["Async runtime resources"]
+    ciStatus["ciStatus<br/>createResource(selectedCommit)"]
+    artifactStatus["artifactStatus<br/>createResource(selectedCommit)"]
+    deploymentStatus["deploymentStatus<br/>createResource(deploymentRequest)"]
+    healthEvents["healthEvents<br/>createStreamResource(selectedCommit)"]
+  end
+
+  subgraph Computed["Derived decisions"]
+    canDeploy["canDeploy"]
+    deploymentRequest["deploymentRequest"]
+    healthSummary["healthSummary"]
+    decisions["decisions<br/>phase / canPromote / blockedReason / riskLevel"]
+  end
+
+  Actions --> selectedCommit
+  Actions --> rolloutIntent
+  Actions --> manualApproval
+  Actions --> eventLog
+
+  selectedCommit --> ciStatus
+  selectedCommit --> artifactStatus
+  selectedCommit --> healthEvents
+
+  ciStatus --> canDeploy
+  artifactStatus --> canDeploy
+
+  selectedCommit --> deploymentRequest
+  targetEnvironment --> deploymentRequest
+  rolloutIntent --> deploymentRequest
+  canDeploy --> deploymentRequest
+
+  deploymentRequest --> deploymentStatus
+  healthEvents --> healthSummary
+
+  ciStatus --> decisions
+  artifactStatus --> decisions
+  deploymentStatus --> decisions
+  healthSummary --> decisions
+  manualApproval --> decisions
+  rolloutIntent --> decisions
+
+  ciStatus --> eventLog
+  artifactStatus --> eventLog
+  deploymentStatus --> eventLog
+  healthEvents --> eventLog
+```
+
+The important boundary is that the graph is headless. React and Vue are only consumers of the final graph state.
+
+## Promotion Gate
+
+The `decisions` computed value turns operational inputs into promotion eligibility.
+
+```mermaid
+flowchart TD
+  CI["CI success?"] --> Artifact["Artifact ready?"]
+  Artifact --> CanDeploy["canDeploy = true"]
+  CanDeploy --> Deploy["Staging rollout requested"]
+  Deploy --> Rollout["Deployment success?"]
+  Rollout --> Health["Health healthy?"]
+  Health --> Approval["Manual approval granted?"]
+  Approval --> Promote["canPromote = true"]
+
+  CI -. failed .-> Blocked["blockedReason"]
+  Artifact -. missing .-> Blocked
+  Rollout -. failed .-> Blocked
+  Health -. degraded .-> Blocked
+  Approval -. missing .-> Blocked
+```
+
+This is why the example is closer to a control-plane graph than a dashboard. The UI displays the decision; it does not own the decision.
+
+## CLI Direction
+
+A realistic DevOps tool would likely consume the same graph from a CLI or headless runtime.
+
+```mermaid
+flowchart TD
+  CLI["CLI<br/>check / deploy / promote / watch"]
+  Args["Parse args<br/>commit / env / format"]
+  Graph["createDevopsGraph()"]
+  Providers["Provider layer<br/>CI / registry / deploy / telemetry"]
+  Decisions["decisions.get()"]
+  Events["eventLog.get()"]
+  Output["stdout / JSON / exit code"]
+
+  CLI --> Args
+  Args --> Graph
+  Providers --> Graph
+
+  Graph --> Decisions
+  Graph --> Events
+
+  Decisions --> Output
+  Events --> Output
+
+  Graph -. same graph .-> React["React viewer"]
+  Graph -. same graph .-> Vue["Vue viewer"]
+```
+
+The current React and Vue panels are viewers. A future CLI could create the same graph, feed it provider data, read `decisions.get()`, and return stdout, JSON, or an exit code.
+
 ## Scenario
 
 ```txt
