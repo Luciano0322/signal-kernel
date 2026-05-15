@@ -1,11 +1,13 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
 const exampleRoot = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(exampleRoot, "../..");
 
 export default defineConfig({
+  plugins: [vue()],
   resolve: {
     alias: {
       "@signal-kernel/core": path.resolve(repoRoot, "packages/core/src/index.ts"),

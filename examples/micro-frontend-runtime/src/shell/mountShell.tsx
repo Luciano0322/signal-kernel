@@ -1,9 +1,9 @@
 import { createRoot } from "react-dom/client";
-import { createApp } from "vue";
+import { createApp, markRaw } from "vue";
 import { mountEventLog } from "../eventLog";
 import { AccountCartIsland } from "../react-island/AccountCartIsland";
 import { createCommerceGraph } from "../shared-graph/commerceGraph";
-import { createCheckoutSummaryIsland } from "../vue-island/CheckoutSummaryIsland";
+import CheckoutSummaryIsland from "../vue-island/CheckoutSummaryIsland.vue";
 
 export function mountShell() {
   const reactRoot = document.getElementById("react-island");
@@ -22,6 +22,6 @@ export function mountShell() {
   }
 
   createRoot(reactRoot).render(<AccountCartIsland graph={graph} />);
-  createApp(createCheckoutSummaryIsland(graph)).mount(vueRoot);
+  createApp(CheckoutSummaryIsland, { graph: markRaw(graph) }).mount(vueRoot);
   mountEventLog(eventLogRoot, graph.selectors.eventLog);
 }

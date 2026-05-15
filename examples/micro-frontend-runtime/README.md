@@ -116,7 +116,7 @@ flowchart LR
 The example uses a small commerce shell:
 
 * React island: account, region, and cart editor
-* Vue island: checkout summary, pricing, and inventory status
+* Vue island: SFC checkout summary, pricing, and inventory status
 * DOM island: shared graph event log
 
 Changing account, region, or cart contents in the React island updates the Vue island through the shared graph.
@@ -195,7 +195,7 @@ src/
   react-island/
     AccountCartIsland.tsx
   vue-island/
-    CheckoutSummaryIsland.ts
+    CheckoutSummaryIsland.vue
   shell/
     mountShell.tsx
 ```
