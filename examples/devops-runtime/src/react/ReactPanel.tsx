@@ -2,6 +2,7 @@ import {
   useComputedValue,
   useResource,
   useSignalValue,
+  useStreamResource,
 } from "@signal-kernel/react";
 import { devopsGraph } from "../graph/devopsGraph";
 
@@ -24,7 +25,9 @@ export function ReactPanel() {
   const [deploymentStatus, deploymentMeta] = useResource(
     devopsGraph.resources.deploymentStatus,
   );
-  const [healthEvents, healthMeta] = devopsGraph.resources.healthEvents;
+  const [healthEvents, healthMeta] = useStreamResource(
+    devopsGraph.resources.healthEvents,
+  );
   const decisions = useComputedValue(devopsGraph.computed.decisions);
   const health = decisions.health.latest;
 
@@ -78,7 +81,7 @@ export function ReactPanel() {
         <p className="mt-1 text-sm text-white">
           {health
             ? `${health.message} (${health.latencyMs}ms, ${(health.errorRate * 100).toFixed(1)}% errors)`
-            : `${healthEvents()?.length ?? 0} events observed`}
+            : `${healthEvents?.length ?? 0} events observed`}
         </p>
       </div>
     </article>
