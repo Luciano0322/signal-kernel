@@ -22,7 +22,6 @@ function CatalogRow(props: {
   quantity: number;
   onAdd: () => void;
   onRemove: () => void;
-  onQuantity: (quantity: number) => void;
 }) {
   return (
     <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
@@ -42,14 +41,9 @@ function CatalogRow(props: {
           >
             Remove
           </button>
-          <input
-            className="h-9 w-16 rounded-md border border-zinc-700 bg-zinc-950 px-2 text-center font-mono text-sm text-white outline-none focus:border-sky-400"
-            min={0}
-            max={9}
-            onChange={(event) => props.onQuantity(Number(event.target.value))}
-            type="number"
-            value={props.quantity}
-          />
+          <p className="flex h-9 w-16 items-center justify-center rounded-md border border-zinc-700 bg-zinc-950 px-2 text-center font-mono text-sm text-white">
+            {props.quantity}
+          </p>
           <button
             className="h-9 rounded-md bg-sky-400 px-3 text-sm font-semibold text-zinc-950 hover:bg-sky-300"
             onClick={props.onAdd}
@@ -128,9 +122,6 @@ export function AccountCartIsland(props: { graph: CommerceGraphContract }) {
             item={item}
             key={item.id}
             onAdd={() => graph.actions.addItem(item.id)}
-            onQuantity={(quantity) =>
-              graph.actions.changeQuantity(item.id, quantity)
-            }
             onRemove={() => graph.actions.removeItem(item.id)}
             quantity={getQuantity(cartItems, item.id)}
           />
@@ -157,7 +148,9 @@ export function AccountCartIsland(props: { graph: CommerceGraphContract }) {
       <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <p className="text-sm text-zinc-300">
           {pricing && checkout.currency
-            ? `Latest total: ${formatMoney(pricing.total, checkout.currency)}`
+            ? `Latest total: ${formatMoney(pricing.total, checkout.currency)}${
+                checkout.blockedReason ? ` · ${checkout.blockedReason}` : ""
+              }`
             : checkout.blockedReason}
         </p>
         <button

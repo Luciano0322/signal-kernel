@@ -1,4 +1,4 @@
-import { computed, signal } from "@signal-kernel/core";
+import { batch, computed, signal } from "@signal-kernel/core";
 import { createResource } from "@signal-kernel/async-runtime";
 import { accounts, catalog, getAccount, getCatalogOrder } from "./fixtures";
 import { fakeInventoryApi } from "./fakeInventoryApi";
@@ -115,13 +115,13 @@ export function createCommerceGraph(): CommerceGraphContract {
   const pricing = createResource<PricingRequest, PricingResult>(
     pricingRequest.get,
     (request, ctx) => fakePricingApi(request, recordEvent, ctx),
-    { keepPreviousValueOnPending: true },
+    { keepPreviousValueOnPending: false },
   ) satisfies ResourceTuple<PricingResult>;
 
   const inventory = createResource<InventoryRequest, InventoryResult>(
     inventoryRequest.get,
     (request, ctx) => fakeInventoryApi(request, recordEvent, ctx),
-    { keepPreviousValueOnPending: true },
+    { keepPreviousValueOnPending: false },
   ) satisfies ResourceTuple<InventoryResult>;
 
   const checkout = computed<CheckoutDecision>(() => {
@@ -140,16 +140,6 @@ export function createCommerceGraph(): CommerceGraphContract {
       return {
         canCheckout: false,
         blockedReason: "Cart is empty",
-        total: null,
-        currency: null,
-        unavailableItems: [],
-      };
-    }
-
-    if (!account.checkoutEnabled) {
-      return {
-        canCheckout: false,
-        blockedReason: "Account entitlement blocks checkout",
         total: null,
         currency: null,
         unavailableItems: [],
@@ -186,6 +176,16 @@ export function createCommerceGraph(): CommerceGraphContract {
       };
     }
 
+    if (!account.checkoutEnabled) {
+      return {
+        canCheckout: false,
+        blockedReason: "Account entitlement blocks checkout",
+        total: formatMoney(pricingResult.total),
+        currency: pricingResult.currency,
+        unavailableItems: [],
+      };
+    }
+
     return {
       canCheckout: true,
       blockedReason: null,
@@ -200,7 +200,10 @@ export function createCommerceGraph(): CommerceGraphContract {
   }
 
   function selectAccount(accountId: AccountId) {
-    selectedAccount.set(accountId);
+    batch(() => {
+      selectedAccount.set(accountId);
+      cartItems.set([]);
+    });
     recordEvent({
       source: "graph",
       phase: "action",

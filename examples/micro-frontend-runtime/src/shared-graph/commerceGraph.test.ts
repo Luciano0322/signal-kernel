@@ -63,7 +63,7 @@ describe("commerce graph contract", () => {
     });
   });
 
-  it("keeps latest pricing authoritative when account changes race", async () => {
+  it("clears account-scoped cart and keeps latest pricing authoritative when account changes race", async () => {
     const graph = createCommerceGraph();
     const [pricing] = graph.resources.pricing;
 
@@ -72,6 +72,13 @@ describe("commerce graph contract", () => {
 
     graph.actions.selectAccount("account-b");
     await flushGraph();
+
+    expect(graph.selectors.cartItems.get()).toEqual([]);
+    expect(pricing()).toBeUndefined();
+    expect(graph.selectors.checkout.get()).toMatchObject({
+      canCheckout: false,
+      blockedReason: "Cart is empty",
+    });
 
     await vi.advanceTimersByTimeAsync(800);
     await flushGraph();
@@ -92,6 +99,24 @@ describe("commerce graph contract", () => {
             event.accountId === "account-a",
         ).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("keeps pricing visible when account entitlement blocks checkout", async () => {
+    const graph = createCommerceGraph();
+
+    graph.actions.selectAccount("account-b");
+    graph.actions.addItem("starter");
+    await flushGraph();
+
+    await vi.advanceTimersByTimeAsync(1200);
+    await flushGraph();
+
+    expect(graph.selectors.checkout.get()).toMatchObject({
+      canCheckout: false,
+      blockedReason: "Account entitlement blocks checkout",
+      currency: "USD",
+      total: 23.2,
+    });
   });
 
   it("allows checkout only when pricing, inventory, cart, and entitlement pass", async () => {

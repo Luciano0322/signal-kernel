@@ -123,6 +123,18 @@ Changing account, region, or cart contents in the React island updates the Vue i
 
 Pricing and inventory are async resources. If account or region changes quickly, stale async results are ignored by `@signal-kernel/async-runtime`.
 
+Changing the selected account also clears the cart. In this example, cart quantities are account-scoped, so `starter`, `pro`, and `enterprise` reset to zero when the account changes.
+
+Pricing and inventory values are also cleared while a new request is pending:
+
+```ts
+{ keepPreviousValueOnPending: false }
+```
+
+That is intentional. Account, region, and cart changes are authority-boundary changes in this example, so old pricing or inventory values should detach immediately instead of staying visible as previous data.
+
+If an account entitlement blocks checkout, pricing can still be visible after the new request resolves. The total is business information; `canCheckout` is the decision gate.
+
 ## Runtime Identity Caveat
 
 This local Vite example uses shell dependency injection to pass one graph contract to both islands.
@@ -161,6 +173,9 @@ The tests focus on graph semantics:
 * the public contract does not expose raw writable signals
 * graph actions update shared state for all islands
 * selector array values cannot mutate graph internals
+* account changes clear account-scoped cart quantities
+* account changes detach previous pricing while the next request is pending
+* entitlement blocks checkout without hiding resolved pricing totals
 * stale pricing results do not overwrite the latest request
 * checkout requires cart contents, pricing, inventory, and entitlement
 
