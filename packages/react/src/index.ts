@@ -6,4 +6,5 @@ export {
   useStreamResource,
   type StreamResourceTuple,
 } from "./useStreamResource.js";
-export type { Readable } from "./types.js";
+export { useReadableValue } from "./readable.js";
+export type { Readable, UseReactiveOptions } from "./types.js";
