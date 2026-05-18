@@ -60,6 +60,16 @@ Prefer specialized hooks over generic graph reads when possible:
 
 `useReactive()` should mainly be used for grouped graph snapshots or custom bridge scenarios.
 
+`useReadableValue()` is a low-level escape hatch. Prefer the specialized hooks unless the caller explicitly needs to control `snapshot` and `track` read strategies. Do not recommend custom strategies casually; incorrect strategy choices can break dependency tracking or force lazy graph values at the wrong time.
+
+## Runtime Identity
+
+Ensure graph primitives, async resources, and React adapter hooks resolve to a compatible single `@signal-kernel/core` runtime instance.
+
+Multiple physical copies of `@signal-kernel/core` can break dependency tracking because a signal created from one runtime instance cannot reliably subscribe to an effect created by another runtime instance. This is especially important in monorepos, examples, linked packages, and micro frontend-like setups.
+
+If a React integration appears stuck in `pending`, fails to re-render after signal writes, or loses async resource invalidation, check package resolution before changing graph semantics.
+
 ## Architecture Reminder
 
 Core owns the graph. Async runtime owns async correctness. React owns rendering. This adapter only connects React subscriptions to existing graph nodes.

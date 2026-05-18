@@ -130,6 +130,15 @@ describe("@signal-kernel/react", () => {
     expect(store.lastSnapshot).toBe(4);
   });
 
+  it("initializes a lazy computed value when React first observes it", () => {
+    const count = signal(1);
+    const doubled = computed(() => count.get() * 2);
+
+    expect(doubled.peek()).toBeUndefined();
+    expect(useComputedValue(doubled)).toBe(2);
+    expect(doubled.peek()).toBe(2);
+  });
+
   it("reads multiple graph values with useReactive", async () => {
     const count = signal(1);
     const status = signal("idle");
@@ -175,6 +184,34 @@ describe("@signal-kernel/react", () => {
     count.set(1);
     await flushGraph();
 
+    expect(store.renderCount).toBe(1);
+    expect(store.notifyCount).toBe(0);
+  });
+
+  it("does not notify React for equivalent object snapshots after invalidation", async () => {
+    const count = signal(1, () => false);
+    let readCount = 0;
+
+    useReactive(
+      () => {
+        readCount += 1;
+
+        return {
+          count: count.get(),
+        };
+      },
+      {
+        equals: (prev, next) => Object.is(prev.count, next.count),
+      },
+    );
+
+    const store = latestStore();
+    const readsBeforeInvalidation = readCount;
+
+    count.set(1);
+    await flushGraph();
+
+    expect(readCount).toBeGreaterThan(readsBeforeInvalidation);
     expect(store.renderCount).toBe(1);
     expect(store.notifyCount).toBe(0);
   });

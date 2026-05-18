@@ -82,6 +82,8 @@ Most users should prefer the higher-level hooks:
 
 `useComputedValue()` intentionally reads computed values through `get()` so lazy computed values can be initialized correctly when first observed by React.
 
+`useReadableValue()` is exported as an advanced bridge for adapter authors and unusual readable-like sources. Prefer the dedicated hooks in application code. Choosing the wrong `snapshot` or `track` strategy can miss graph dependencies, force lazy values too early, or make React render from a different read path than the one used for subscription.
+
 ## Async Bridge
 
 ```tsx
@@ -115,6 +117,17 @@ function UserView() {
 The async hooks consume resource tuples created by `@signal-kernel/async-runtime`. They observe both resource values and metadata getters, including status and error states, so metadata-only transitions can re-render React.
 
 `useStreamResource()` also observes stream metadata such as stable values, allowing React to update when streaming state changes even if the visible value has not changed.
+
+`useResource()` and `useStreamResource()` return the current value snapshot together with the original resource metadata object:
+
+```tsx
+const [value, meta] = useStreamResource(resource);
+const status = meta.status();
+```
+
+The returned `value` is the value captured by the adapter snapshot for this render. The returned `meta` is still the live async-runtime metadata object. The hook subscribes to metadata reads internally so `meta.status()`, `meta.error()`, and stream `meta.stableValue()` changes can trigger React updates, but ownership of those transitions remains in `@signal-kernel/async-runtime`.
+
+When a component needs value and metadata to be consumed as one named render snapshot, wrap the tuple locally in a small hook that reads the value and metadata inside one `useReactive()` call. Keep that hook in the adapter or application boundary; do not move rendering concerns into the graph or async runtime.
 
 These hooks do not add caching, retry, cancellation, or Suspense policy. Those behaviors remain owned by `@signal-kernel/async-runtime`.
 
