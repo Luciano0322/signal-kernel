@@ -1,50 +1,62 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 import { createEffect } from "@signal-kernel/core";
+import type { UseReactiveOptions } from "./types.js";
 
-type ReactiveStore<T> = {
-  getSnapshot(): T;
-  subscribe(notify: () => void): () => void;
-};
 
-function createReactiveStore<T>(read: () => T): ReactiveStore<T> {
-  let snapshot = read();
+export function useReactive<T>(
+  read: () => T,
+  options: UseReactiveOptions<T> = {},
+): T {
+  const snapshotRef = useRef<T | undefined>(undefined);
+  const hasSnapshotRef = useRef(false);
 
-  return {
-    getSnapshot() {
-      return snapshot;
-    },
+  const snapshotRead = options.snapshot ?? read;
+  const trackRead = options.track ?? read;
+  const equals = options.equals ?? Object.is;
 
-    subscribe(notify) {
+  const getSnapshot = useCallback(() => {
+    const next = snapshotRead();
+
+    snapshotRef.current = next;
+    hasSnapshotRef.current = true;
+
+    return next;
+  }, [snapshotRead]);
+
+  const subscribe = useCallback(
+    (notify: () => void) => {
       let first = true;
 
       const stop = createEffect(() => {
-        const next = read();
+        const next = trackRead();
 
         if (first) {
-          snapshot = next;
+          snapshotRef.current = next;
+          hasSnapshotRef.current = true;
           first = false;
           return;
         }
 
-        snapshot = next;
+        if (
+          hasSnapshotRef.current &&
+          equals(snapshotRef.current as T, next)
+        ) {
+          return;
+        }
+
+        snapshotRef.current = next;
+        hasSnapshotRef.current = true;
         notify();
       });
 
-      return () => {
-        stop();
-      };
+      return stop;
     },
-  };
-}
-
-export function useReactive<T>(read: () => T): T {
-  const store = useMemo(() => {
-    return createReactiveStore(read);
-  }, [read]);
+    [trackRead, equals],
+  );
 
   return useSyncExternalStore(
-    store.subscribe,
-    store.getSnapshot,
-    store.getSnapshot
+    subscribe,
+    getSnapshot,
+    options.getServerSnapshot ?? getSnapshot,
   );
 }

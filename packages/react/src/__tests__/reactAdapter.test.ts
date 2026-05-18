@@ -38,6 +38,10 @@ const reactHarness = vi.hoisted(() => {
     return factory();
   }
 
+  function useRef<T>(initialValue: T): { current: T } {
+    return { current: initialValue };
+  }
+
   function useSyncExternalStore<T>(
     subscribe: (notify: () => void) => () => void,
     getSnapshot: () => T,
@@ -70,6 +74,7 @@ const reactHarness = vi.hoisted(() => {
     stores,
     useCallback,
     useMemo,
+    useRef,
     useSyncExternalStore,
   };
 });
@@ -77,6 +82,7 @@ const reactHarness = vi.hoisted(() => {
 vi.mock("react", () => ({
   useCallback: reactHarness.useCallback,
   useMemo: reactHarness.useMemo,
+  useRef: reactHarness.useRef,
   useSyncExternalStore: reactHarness.useSyncExternalStore,
 }));
 
@@ -114,7 +120,6 @@ describe("@signal-kernel/react", () => {
     const count = signal(1);
     const doubled = computed(() => count.get() * 2);
 
-    doubled.get();
     expect(useComputedValue(doubled)).toBe(2);
 
     const store = latestStore();
@@ -147,6 +152,31 @@ describe("@signal-kernel/react", () => {
 
     expect(store.renderCount).toBe(3);
     expect(store.lastSnapshot).toEqual({ count: 2, status: "ready" });
+  });
+
+  it("does not re-render when useReactive snapshot is equal by custom equality", async () => {
+    const count = signal(1);
+    const status = signal("idle");
+
+    useReactive(
+      () => ({
+        count: count.get(),
+        status: status.get(),
+      }),
+      {
+        equals: (prev, next) =>
+          Object.is(prev.count, next.count) &&
+          Object.is(prev.status, next.status),
+      },
+    );
+
+    const store = latestStore();
+
+    count.set(1);
+    await flushGraph();
+
+    expect(store.renderCount).toBe(1);
+    expect(store.notifyCount).toBe(0);
   });
 
   it("re-renders resource consumers for metadata-only transitions", async () => {
