@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>signal-kernel micro frontend runtime</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-zinc-950 text-zinc-100">
+    <main class="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 py-6">
+      <header class="space-y-2">
+        <p class="text-sm font-medium uppercase tracking-[0.2em] text-sky-300">signal-kernel example</p>
+        <h1 class="text-3xl font-semibold text-white">Micro frontend runtime graph</h1>
+        <p class="max-w-3xl text-sm leading-6 text-zinc-300">
+          A monorepo-style shared graph library consumed by independently mounted React and Vue islands.
+          The shell creates the graph instance and injects a graph contract into each island.
+        </p>
+        <p id="shell-meta" class="font-mono text-xs text-zinc-500"></p>
+      </header>
+
+      <section class="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <div id="react-island"></div>
+        <div id="vue-island"></div>
+      </section>
+
+      <section class="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h2 class="text-base font-semibold text-white">Shared graph event log</h2>
+          <span class="text-xs text-zinc-400">Actions, pricing, inventory, stale results</span>
+        </div>
+        <ol id="event-log" class="space-y-2 text-sm"></ol>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
