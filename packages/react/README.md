@@ -61,6 +61,27 @@ function Dashboard() {
 }
 ```
 
+### Snapshot Strategy
+
+`useReactive()` bridges a reactive read function into React through `useSyncExternalStore`.
+
+The read function is used to collect graph dependencies inside the signal-kernel runtime, while React only consumes the returned snapshot. This keeps React rendering as a snapshot consumer instead of making React own the graph.
+
+For low-level readable sources, `useReadableValue()` supports different read strategies:
+
+- `snapshot: "peek"` reads the current value without forcing reactive evaluation.
+- `snapshot: "get"` reads through the reactive getter and can initialize lazy computed values.
+- `track: "get"` is used to collect dependencies for external-store updates.
+
+Most users should prefer the higher-level hooks:
+
+- `useSignalValue()` for signals
+- `useComputedValue()` for computed values
+- `useResource()` for async resources
+- `useStreamResource()` for streaming async resources
+
+`useComputedValue()` intentionally reads computed values through `get()` so lazy computed values can be initialized correctly when first observed by React.
+
 ## Async Bridge
 
 ```tsx
@@ -91,7 +112,13 @@ function UserView() {
 }
 ```
 
-The async hooks consume resource tuples created by `@signal-kernel/async-runtime`. They observe resource value and metadata getters so metadata-only transitions can re-render React. They do not add caching, retry, cancellation, or Suspense policy.
+The async hooks consume resource tuples created by `@signal-kernel/async-runtime`. They observe both resource values and metadata getters, including status and error states, so metadata-only transitions can re-render React.
+
+`useStreamResource()` also observes stream metadata such as stable values, allowing React to update when streaming state changes even if the visible value has not changed.
+
+These hooks do not add caching, retry, cancellation, or Suspense policy. Those behaviors remain owned by `@signal-kernel/async-runtime`.
+
+The low-level bridge options are exported for adapter-level use, but application code should normally use the dedicated hooks instead of configuring read strategies manually.
 
 ## Boundary
 
