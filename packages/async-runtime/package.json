@@ -49,6 +49,6 @@
     "test": "pnpm exec vitest run"
   },
   "dependencies": {
-    "@signal-kernel/core": "^0.1.2"
+    "@signal-kernel/core": "workspace:*"
   }
 }

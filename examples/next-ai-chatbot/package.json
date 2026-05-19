@@ -1,0 +1,27 @@
+{
+  "name": "@signal-kernel/example-next-ai-chatbot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0 --port 5176",
+    "build": "next build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@signal-kernel/async-runtime": "workspace:*",
+    "@signal-kernel/core": "workspace:*",
+    "@signal-kernel/react": "workspace:*",
+    "client-only": "^0.0.1",
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  }
+}

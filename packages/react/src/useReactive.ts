@@ -15,12 +15,14 @@ export function useReactive<T>(
   const equals = options.equals ?? Object.is;
 
   const getSnapshot = useCallback(() => {
-    const next = snapshotRead();
+    if (!hasSnapshotRef.current) {
+      const next = snapshotRead();
 
-    snapshotRef.current = next;
-    hasSnapshotRef.current = true;
+      snapshotRef.current = next;
+      hasSnapshotRef.current = true;
+    }
 
-    return next;
+    return snapshotRef.current as T;
   }, [snapshotRead]);
 
   const subscribe = useCallback(
@@ -28,14 +30,18 @@ export function useReactive<T>(
       let first = true;
 
       const stop = createEffect(() => {
-        const next = trackRead();
+        trackRead();
 
         if (first) {
-          snapshotRef.current = next;
-          hasSnapshotRef.current = true;
+          if (!hasSnapshotRef.current) {
+            snapshotRef.current = snapshotRead();
+            hasSnapshotRef.current = true;
+          }
           first = false;
           return;
         }
+
+        const next = snapshotRead();
 
         if (
           hasSnapshotRef.current &&
@@ -51,7 +57,7 @@ export function useReactive<T>(
 
       return stop;
     },
-    [trackRead, equals],
+    [trackRead, snapshotRead, equals],
   );
 
   return useSyncExternalStore(
