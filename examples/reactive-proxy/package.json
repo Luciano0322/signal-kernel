@@ -1,0 +1,19 @@
+{
+  "name": "@signal-kernel/example-reactive-proxy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@signal-kernel/core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
