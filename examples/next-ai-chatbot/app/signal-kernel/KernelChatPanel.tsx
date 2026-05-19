@@ -1,25 +1,15 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useMemo } from "react";
 import type { StreamAsyncStatus } from "@signal-kernel/async-runtime";
+import {
+  useComputedValue,
+  useSignalValue,
+  useStreamResource,
+} from "@signal-kernel/react";
 import { ChatPanel } from "../components/ChatPanel";
-import { ChatMessage, ChatMessageStatus, createId } from "../chatTypes";
-import { chatGraph } from "./chatGraph";
-import { useStreamResourceSnapshot } from "./useStreamResourceSnapshot";
-
-type AssistantDraft = {
-  id: string;
-};
-
-function createWelcomeMessage(): ChatMessage {
-  return {
-    id: createId(),
-    role: "assistant",
-    content:
-      "Ask a question and I will stream through signal-kernel before React renders it.",
-    status: "done",
-  };
-}
+import { ChatMessage, ChatMessageStatus } from "../chatTypes";
+import { createChatGraph } from "./chatGraph";
 
 function toAssistantStatus(streamStatus: StreamAsyncStatus): ChatMessageStatus {
   if (streamStatus === "success") return "done";
@@ -29,93 +19,37 @@ function toAssistantStatus(streamStatus: StreamAsyncStatus): ChatMessageStatus {
 }
 
 export function KernelChatPanel() {
-  const assistantStream = useStreamResourceSnapshot(
-    chatGraph.resources.assistantStream,
-  );
-  const assistantText = assistantStream.value;
-  const streamStatus = assistantStream.status;
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    createWelcomeMessage(),
-  ]);
-  const [activeAssistant, setActiveAssistant] =
-    useState<AssistantDraft | null>(null);
-  const [input, setInput] = useState("");
-  const committedAssistantIdRef = useRef<string | null>(null);
-
-  const hasActiveAssistant = activeAssistant !== null;
+  const graph = useMemo(() => createChatGraph(), []);
+  const input = useSignalValue(graph.input);
+  const messages = useSignalValue(graph.messages);
+  const activeAssistant = useSignalValue(graph.activeAssistant);
+  const canSubmit = useComputedValue(graph.canSubmit);
+  const [assistantText, assistantStream] = useStreamResource(graph.stream);
+  const streamStatus = assistantStream.status();
   const isStreaming =
-    hasActiveAssistant &&
+    activeAssistant !== null &&
     streamStatus !== "success" &&
     streamStatus !== "error" &&
     streamStatus !== "cancelled";
-  const runtimeStatus = hasActiveAssistant ? streamStatus : "idle";
+  const runtimeStatus = activeAssistant ? streamStatus : "idle";
   const streamSize = assistantText?.length ?? 0;
-
   const visibleMessages: ChatMessage[] = activeAssistant
     ? [
         ...messages,
         {
-          id: activeAssistant.id,
-          role: "assistant",
+          ...activeAssistant,
           content: assistantText ?? "",
           status: toAssistantStatus(streamStatus),
         },
       ]
     : messages;
 
-  useEffect(() => {
-    if (!activeAssistant) return;
-    if (
-      streamStatus !== "success" &&
-      streamStatus !== "error" &&
-      streamStatus !== "cancelled"
-    ) {
-      return;
-    }
-    if (committedAssistantIdRef.current === activeAssistant.id) return;
-
-    committedAssistantIdRef.current = activeAssistant.id;
-    setMessages((current) => [
-      ...current,
-      {
-        id: activeAssistant.id,
-        role: "assistant",
-        content:
-          assistantText ||
-          (streamStatus === "cancelled" ? "Stopped." : "Something went wrong."),
-        status: toAssistantStatus(streamStatus),
-      },
-    ]);
-    setActiveAssistant(null);
-  }, [activeAssistant, assistantText, streamStatus]);
-
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const prompt = input.trim();
-
-    if (!prompt || activeAssistant) return;
-
-    const userMessage: ChatMessage = {
-      id: createId(),
-      role: "user",
-      content: prompt,
-      status: "done",
-    };
-    const assistantDraft: AssistantDraft = {
-      id: createId(),
-    };
-    const requestMessages = [...messages, userMessage];
-
-    committedAssistantIdRef.current = null;
-    setInput("");
-    setMessages(requestMessages);
-    setActiveAssistant(assistantDraft);
-    chatGraph.actions.requestAssistant(requestMessages);
-  }
-
-  function stopStreaming() {
-    assistantStream.cancel();
+    if (canSubmit) {
+      graph.actions.submit();
+    }
   }
 
   return (
@@ -126,9 +60,9 @@ export function KernelChatPanel() {
       messages={visibleMessages}
       runtimeStatus={runtimeStatus}
       streamSize={streamSize}
-      onInputChange={setInput}
+      onInputChange={graph.actions.setInput}
       onSubmit={handleSubmit}
-      onStop={stopStreaming}
+      onStop={graph.actions.cancel}
     />
   );
 }
