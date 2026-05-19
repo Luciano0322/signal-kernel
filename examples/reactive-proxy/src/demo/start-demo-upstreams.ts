@@ -1,4 +1,8 @@
 import { createServer, type Server, type ServerResponse } from "node:http";
+import {
+  resolveDemoProxyPorts,
+  type DemoProxyPortOverrides,
+} from "../config/default-config";
 
 type DemoUpstream = {
   id: string;
@@ -19,12 +23,18 @@ export type DemoUpstreamsRuntime = {
   close(): Promise<void>;
 };
 
-const demoUpstreams: DemoUpstream[] = [
-  { id: "api-a", port: 3001 },
-  { id: "api-b", port: 3002 },
-  { id: "web-a", port: 3003 },
-  { id: "api-admin-a", port: 3004 },
-];
+function createDemoUpstreamSpecs(
+  portOverrides: DemoProxyPortOverrides = {},
+): DemoUpstream[] {
+  const ports = resolveDemoProxyPorts(portOverrides);
+
+  return [
+    { id: "api-a", port: ports.apiA },
+    { id: "api-b", port: ports.apiB },
+    { id: "web-a", port: ports.webA },
+    { id: "api-admin-a", port: ports.apiAdminA },
+  ];
+}
 
 function jsonResponse(
   statusCode: number,
@@ -133,8 +143,21 @@ async function startDemoUpstream(
   };
 }
 
-export async function startDemoUpstreams(): Promise<DemoUpstreamsRuntime> {
-  const upstreams = await Promise.all(demoUpstreams.map(startDemoUpstream));
+export async function startDemoUpstreams(
+  portOverrides: DemoProxyPortOverrides = {},
+): Promise<DemoUpstreamsRuntime> {
+  const upstreams: DemoUpstreamRuntime[] = [];
+
+  try {
+    for (const upstream of createDemoUpstreamSpecs(portOverrides)) {
+      upstreams.push(await startDemoUpstream(upstream));
+    }
+  } catch (error) {
+    await Promise.allSettled(
+      upstreams.map((upstream) => closeServer(upstream.server)),
+    );
+    throw error;
+  }
 
   return {
     upstreams,

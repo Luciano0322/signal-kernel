@@ -1,4 +1,9 @@
 import { createServer, type Server } from "node:http";
+import {
+  createReactiveProxyConfig,
+  type DemoProxyPortOverrides,
+} from "./config/default-config";
+import type { ReactiveProxyConfig } from "./config/schema";
 import { createReactiveProxyGraph } from "./graph/reactiveProxyGraph";
 import { startDemoUpstreams, type DemoUpstreamsRuntime } from "./demo/start-demo-upstreams";
 import {
@@ -10,6 +15,8 @@ import { proxyRequest } from "./effects/proxy-request";
 type ReactiveProxyServerOptions = {
   port?: number;
   healthIntervalMs?: number;
+  demoPorts?: DemoProxyPortOverrides;
+  config?: ReactiveProxyConfig;
 };
 
 export type ReactiveProxyServerRuntime = {
@@ -47,16 +54,24 @@ export async function startReactiveProxyServer(
   options: ReactiveProxyServerOptions = {},
 ): Promise<ReactiveProxyServerRuntime> {
   const port = options.port ?? 18080;
-  const graph = createReactiveProxyGraph();
-  const demoUpstreams = await startDemoUpstreams();
-  const healthChecks = startHealthChecks(graph, {
-    intervalMs: options.healthIntervalMs ?? 2000,
-  });
+  const graph = createReactiveProxyGraph(
+    options.config ?? createReactiveProxyConfig(options.demoPorts),
+  );
   const server = createServer((req, res) => {
     proxyRequest(graph, req, res);
   });
+  const demoUpstreams = await startDemoUpstreams(options.demoPorts);
+  const healthChecks = startHealthChecks(graph, {
+    intervalMs: options.healthIntervalMs ?? 2000,
+  });
 
-  await listen(server, port);
+  try {
+    await listen(server, port);
+  } catch (error) {
+    healthChecks.stop();
+    await demoUpstreams.close();
+    throw error;
+  }
 
   return {
     graph,
