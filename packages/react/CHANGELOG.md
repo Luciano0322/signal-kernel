@@ -1,5 +1,11 @@
 # @signal-kernel/react
 
+## 0.3.0
+
+### Minor Changes
+
+- a736d59: Adjust snapshot strategy for react lifecycle
+
 ## 0.2.2
 
 ### Patch Changes
