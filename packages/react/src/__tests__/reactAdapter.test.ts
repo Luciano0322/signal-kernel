@@ -18,6 +18,7 @@ type ExternalStoreState = {
   lastSnapshot: unknown;
   notifyCount: number;
   renderCount: number;
+  initialSnapshotsEqual: boolean;
   unsubscribe: () => void;
 };
 
@@ -46,8 +47,11 @@ const reactHarness = vi.hoisted(() => {
     subscribe: (notify: () => void) => () => void,
     getSnapshot: () => T,
   ): T {
+    const firstSnapshot = getSnapshot();
+    const secondSnapshot = getSnapshot();
     const state: ExternalStoreState = {
-      lastSnapshot: getSnapshot(),
+      lastSnapshot: secondSnapshot,
+      initialSnapshotsEqual: Object.is(firstSnapshot, secondSnapshot),
       notifyCount: 0,
       renderCount: 1,
       unsubscribe: () => {},
@@ -151,6 +155,8 @@ describe("@signal-kernel/react", () => {
     ).toEqual({ count: 1, status: "idle" });
 
     const store = latestStore();
+    expect(store.initialSnapshotsEqual).toBe(true);
+
     count.set(2);
     await flushGraph();
 
