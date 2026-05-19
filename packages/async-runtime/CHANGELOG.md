@@ -1,5 +1,11 @@
 # @signal-kernel/async-runtime
 
+## 0.2.4
+
+### Patch Changes
+
+- 79441c8: Refine React adapter snapshot tracking semantics.
+
 ## 0.2.3
 
 ### Patch Changes
