@@ -848,7 +848,7 @@ or use an in-memory flag in the demo service.
 As a developer, I can send:
 
 ```txt
-GET http://localhost:8080/api/users
+GET http://localhost:18080/api/users
 ```
 
 Expected:
@@ -1015,7 +1015,7 @@ Behavior:
 
 * start demo upstreams
 * start health checks
-* start proxy server at `localhost:8080`
+* start proxy server at `localhost:18080`
 * print startup instructions
 
 ### Step 8: Add tests
@@ -1109,8 +1109,8 @@ pnpm -F @signal-kernel/example-reactive-proxy dev
 
 ## Try
 
-curl http://localhost:8080/api/users
-curl http://localhost:8080/web/home
+curl http://localhost:18080/api/users
+curl http://localhost:18080/web/home
 
 ## Key idea
 
