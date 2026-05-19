@@ -43,7 +43,7 @@ export function createSelector<T>(read: () => T): Readable<T> {
 
 This is a deliberate graph-contract decision.
 
-React's adapter reads `peek()` for the initial `useSyncExternalStore` snapshot. A lazy computed value may not have a cached value until `get()` has run at least once. If a public selector exposes an unprimed computed, a React island can see `undefined` on first render even though the selector's logical type is non-null.
+React adapter hooks can use different snapshot strategies depending on the source. Signals can be read through `peek()` for render snapshots, while computed values may need `get()` so lazy values are initialized before React renders them. If a public selector exposes an unprimed computed value, a consumer can still observe an invalid first snapshot even though the selector's logical type is non-null.
 
 The shared graph library takes responsibility for that boundary:
 
@@ -51,6 +51,7 @@ The shared graph library takes responsibility for that boundary:
 * public selectors should have a valid initial snapshot
 * public selectors should provide stable snapshot identity when possible
 * writable signals remain private
+* islands should not need to know which snapshot strategy a selector requires
 * islands should not need to know whether a selector is backed by a signal or a computed value
 
 This helper is local to the example for now. It is not yet a public `@signal-kernel/core` API. The example keeps it local so the selector contract can be tested before promoting the pattern into the runtime packages.
