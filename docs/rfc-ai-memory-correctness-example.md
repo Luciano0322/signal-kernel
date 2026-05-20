@@ -24,7 +24,7 @@ Most AI memory systems focus on memory engines, retrieval, extraction, or middle
 * Can rendered memory prompts avoid derived-state drift?
 * Can memory retention be committed atomically?
 * Can failed retention be rolled back?
-* Can the memory lifecycle be inspected, snapshotted, and replayed?
+* Can the memory lifecycle be inspected and snapshotted before durable replay exists?
 
 The purpose of this example is to show that `signal-kernel` can act as a runtime layer between chat/agent frameworks and memory providers.
 
@@ -64,7 +64,7 @@ This model is easy to integrate, but it hides several correctness problems:
 4. **Invisible background side effects**
    Memory extraction and retention are often triggered in background tasks, making failures difficult to observe and reason about.
 
-5. **Weak snapshot / replay semantics**
+5. **Weak lifecycle snapshot semantics**
    Most memory systems can inspect current memory state, but they do not model memory lifecycle checkpoints as first-class runtime artifacts.
 
 The example should demonstrate that these are not merely application bugs. They are runtime-level correctness problems.
@@ -228,7 +228,7 @@ after retain rollback
 This enables:
 
 * inspection
-* replay
+* replay experiments in later phases
 * rollback
 * debugging
 * deterministic demo scenarios
@@ -253,7 +253,7 @@ The example should include:
 * race condition demo
 * derived prompt drift demo
 * partial retain failure demo
-* snapshot timeline demo
+* snapshot timeline inspection demo
 
 ### 7.2 Excluded
 
@@ -268,8 +268,31 @@ The first version should not include:
 * authentication
 * production persistence
 * cloud deployment
+* full snapshot replay semantics
+* the final `@signal-kernel/snapshot` package format
+* a published `@signal-kernel/memory-runtime` package
 
 These can be future phases after the correctness model is proven.
+
+### 7.3 V1 Implementation Boundary
+
+V1 should prove a small correctness model, not a full AI runtime.
+
+V1 must prove:
+
+* latest recall wins when recall requests resolve out of order
+* the rendered memory prompt is derived from the current recalled facts
+* extracted candidate facts are not committed memory facts
+* retention is modeled as commit / rollback, not a hidden background write
+* snapshots are local runtime inspection artifacts
+
+V1 should not promise:
+
+* durable replay
+* resumable generation
+* provider-specific memory middleware
+* a stable memory-runtime package API
+* a stable snapshot serialization format
 
 ---
 
@@ -311,7 +334,7 @@ examples/ai-memory-correctness/
       staleRecallRace.ts
       derivedPromptDrift.ts
       partialRetainFailure.ts
-      snapshotReplay.ts
+      snapshotTimeline.ts
 
     kernel/
       createChatGraph.ts
@@ -359,9 +382,11 @@ export type RecallResult = {
 }
 
 export type CandidateFact = {
+  id: string
   content: string
   confidence: number
   sourceTurnId: string
+  status: 'candidate' | 'validated' | 'rejected'
 }
 
 export type ConsolidationAction =
@@ -405,6 +430,8 @@ export interface MemoryDriver {
 
 The driver protocol should avoid becoming too smart. The correctness layer should live in the signal-kernel runtime, not inside the storage driver.
 
+The local driver may implement `applyPlan()` by mutating an in-memory map. That does not make the driver responsible for lifecycle correctness. The runtime layer should still model the retain operation as an explicit commit / rollback transition.
+
 ---
 
 ## 10. Memory Runtime API Sketch
@@ -425,7 +452,36 @@ export function createMemoryRuntime(options: CreateMemoryRuntimeOptions) {
 }
 ```
 
-Possible returned API:
+This helper should follow the existing `signal-kernel` public API style:
+
+* `signal()` and `computed()` return objects with `.get()` / `.peek()` methods.
+* `createResource()` returns `[valueGetter, meta]`.
+* `createStreamResource()` returns `[valueGetter, meta]`.
+* React integration should happen only through adapter hooks such as `useSignalValue`, `useComputedValue`, `useResource`, and `useStreamResource`.
+
+Recall should be modeled with the actual `createResource()` tuple shape:
+
+```ts
+const recallQuery = computed(() => currentUserMessage.get().trim())
+
+const recalledFacts = createResource(
+  () => ({
+    scope: options.scope(),
+    query: recallQuery.get(),
+  }),
+  async ({ scope, query }, ctx) => {
+    const result = await options.driver.recall({
+      scope,
+      query,
+      signal: ctx.signal,
+    })
+
+    return result.facts
+  },
+)
+```
+
+Possible returned API shape:
 
 ```ts
 const memory = createMemoryRuntime({
@@ -437,22 +493,25 @@ const memory = createMemoryRuntime({
 })
 
 const context = memory.createContext({
-  input: currentUserMessage,
+  input: currentUserMessage.get,
 })
 
-context.recalledFacts()
-context.renderedPrompt()
-context.status()
-context.error()
-context.snapshot()
+const [recalledFacts, recallMeta] = context.recalledFacts
 
-await memory.retainTurn({
+recalledFacts()
+recallMeta.status()
+context.renderedPrompt.get()
+context.status.get()
+context.error.get()
+context.snapshot.get()
+
+memory.actions.retainTurn({
   userMessage,
   assistantMessage,
 })
 ```
 
-The API should demonstrate the conceptual model without over-engineering the final package shape.
+The API should demonstrate the conceptual model without over-engineering the final package shape. It should not introduce a second callable-signal style that differs from the current `@signal-kernel/core` API.
 
 ---
 
@@ -465,8 +524,8 @@ const currentUserId = signal('user_1')
 
 const memory = createMemoryRuntime({
   scope: () => ({
-    userId: currentUserId(),
-    threadId: currentThreadId(),
+    userId: currentUserId.get(),
+    threadId: currentThreadId.get(),
   }),
   driver: localMemoryDriver(),
   extract: extractCandidateFacts,
@@ -475,34 +534,54 @@ const memory = createMemoryRuntime({
 })
 
 const memoryContext = memory.createContext({
-  input: currentUserMessage,
+  input: currentUserMessage.get,
 })
 
-const modelStream = createStreamResource(
+const modelStream = createStreamResource<
+  { message: string; memoryPrompt: string },
+  string,
+  string,
+  Error
+>(
   () => ({
-    message: currentUserMessage(),
-    memoryPrompt: memoryContext.renderedPrompt(),
+    message: currentUserMessage.get(),
+    memoryPrompt: memoryContext.renderedPrompt.get(),
   }),
-  async ({ message, memoryPrompt }, token) => {
-    return mockModelStream({
-      system: memoryPrompt,
-      user: message,
-      signal: token.signal,
-    })
+  async ({ message, memoryPrompt }, ctx) => {
+    let content = ''
+
+    for await (const chunk of mockModelStream({ system: memoryPrompt, user: message })) {
+      if (ctx.isCancelled()) return
+
+      content += chunk
+      ctx.emit(chunk)
+    }
+
+    ctx.done(content)
+  },
+  {
+    initialValue: '',
+    reduce: (current, chunk) => `${current ?? ''}${chunk}`,
+    onCancel: 'keep-partial',
+    onError: 'keep-partial',
+    onSuccess: (assistantMessage) => {
+      memory.actions.retainTurn({
+        userMessage: currentUserMessage.peek(),
+        assistantMessage,
+      })
+    },
   }
 )
 
-createEffect(() => {
-  if (modelStream.status() !== 'success') return
+const [assistantText, streamMeta] = modelStream
 
-  memory.retainTurn({
-    userMessage: currentUserMessage(),
-    assistantMessage: modelStream.value(),
-  })
-})
+assistantText()
+streamMeta.status()
 ```
 
 Important: this is not the final API contract. It is an implementation sketch to guide the example.
+
+Retention should be triggered by an explicit turn lifecycle transition, such as the `onSuccess` callback shown above, or by a dedicated graph action. It should not depend on React component lifecycle.
 
 ---
 
@@ -530,7 +609,7 @@ In a naive implementation, Recall A may overwrite the memory context for message
 Turn A starts recall
 Turn B starts recall
 Turn B recall finishes -> active memory = B
-Turn A recall finishes -> active memory = A  ❌ stale overwrite
+Turn A recall finishes -> active memory = A  [stale overwrite]
 ```
 
 #### Expected signal-kernel Behavior
@@ -540,7 +619,7 @@ Turn A starts recall
 Turn B starts recall
 Turn A recall becomes stale
 Turn B recall finishes -> active memory = B
-Turn A finishes later -> ignored or cancelled ✅
+Turn A finishes later -> ignored or cancelled
 ```
 
 #### What the UI Should Show
@@ -572,7 +651,7 @@ facts = [old preference]
 prompt = render(facts)
 
 facts updated
-prompt still contains old preference ❌
+prompt still contains old preference
 ```
 
 #### Expected signal-kernel Behavior
@@ -582,7 +661,7 @@ memoryStore changes
   -> recalledFacts dirty
   -> activeMemoryContext dirty
   -> renderedMemoryPrompt dirty
-  -> prompt updates automatically ✅
+  -> prompt updates automatically
 ```
 
 #### What the UI Should Show
@@ -617,7 +696,7 @@ A naive implementation may leave the memory store partially updated.
 candidate facts = [fact1, fact2, fact3]
 write fact1 success
 write fact2 fails
-fact1 remains committed ❌ partial memory state
+fact1 remains committed [partial memory state]
 ```
 
 #### Expected signal-kernel Behavior
@@ -629,7 +708,7 @@ start retain transaction
 write fact1 staged
 write fact2 fails
 rollback staged changes
-memory store unchanged ✅
+memory store unchanged
 ```
 
 #### What the UI Should Show
@@ -650,7 +729,7 @@ memory store unchanged ✅
 
 ---
 
-### 12.4 Scenario D: Snapshot / Replay
+### 12.4 Scenario D: Snapshot Timeline Inspection
 
 #### Problem
 
@@ -679,11 +758,12 @@ after retain commit / rollback
 * active prompt at that point
 * stream status at that point
 * retain transaction status at that point
+* no durable replay behavior required in v1
 
 #### signal-kernel Feature Demonstrated
 
 * snapshot as runtime artifact
-* replay-friendly state model
+* future replay-friendly state model
 * observability
 * deterministic debugging
 
@@ -806,15 +886,33 @@ export type MemoryRuntimeEvent =
       timestamp: number
     }
   | {
+      type: 'stream.chunk'
+      turnId: string
+      chunk: string
+      value: string
+      timestamp: number
+    }
+  | {
       type: 'stream.completed'
       turnId: string
       value: string
       timestamp: number
     }
   | {
+      type: 'extract.started'
+      turnId: string
+      timestamp: number
+    }
+  | {
       type: 'extract.resolved'
       turnId: string
       candidates: CandidateFact[]
+      timestamp: number
+    }
+  | {
+      type: 'consolidation.planned'
+      turnId: string
+      plan: ConsolidationPlan
       timestamp: number
     }
   | {
@@ -967,7 +1065,6 @@ Use a mock stream:
 export async function* mockModelStream(input: {
   system: string
   user: string
-  signal?: AbortSignal
 }) {
   const chunks = [
     'I understand your context. ',
@@ -976,7 +1073,6 @@ export async function* mockModelStream(input: {
   ]
 
   for (const chunk of chunks) {
-    if (input.signal?.aborted) return
     await delay(300)
     yield chunk
   }
@@ -986,7 +1082,7 @@ export async function* mockModelStream(input: {
 The mock stream should expose enough behavior to demonstrate:
 
 * streaming
-* cancellation
+* cancellation through `createStreamResource` and `ctx.isCancelled()`
 * completed turn
 * retention trigger
 
@@ -1068,6 +1164,8 @@ async function retainTransaction(input: {
 
 For v1, rollback can be implemented by restoring the previous in-memory snapshot.
 
+Production drivers may eventually provide native transactions. Even then, the signal-kernel runtime should still expose retain status, errors, commit events, and rollback events as graph state. The driver can own persistence mechanics; the runtime owns lifecycle visibility.
+
 The point is not to build a database-grade transaction system. The point is to demonstrate the runtime semantics:
 
 ```txt
@@ -1078,6 +1176,19 @@ it is an explicit state transition with commit / rollback semantics.
 ---
 
 ## 20. Snapshot Model
+
+V1 snapshots are local runtime inspection artifacts.
+
+They should help a viewer answer:
+
+```txt
+What did the memory graph know at this lifecycle point?
+Which prompt was rendered from those facts?
+Which stream or retain status was active?
+Which events had already happened?
+```
+
+V1 snapshots should not define the final `@signal-kernel/snapshot` package format, durable replay protocol, or cross-runtime serialization boundary.
 
 Snapshots should record:
 
@@ -1167,9 +1278,10 @@ Goal: prove memory retention as explicit transaction.
 * Add runtime snapshot model
 * Record snapshots across lifecycle
 * Add snapshot inspector
-* Add replay-like UI controls
+* Add selected snapshot detail view
+* Do not define durable replay semantics in v1
 
-Goal: prove memory lifecycle observability.
+Goal: prove memory lifecycle observability without locking in the future snapshot package design.
 
 ---
 
@@ -1204,12 +1316,13 @@ When retain fails halfway,
 committed memory store is restored to previous snapshot.
 ```
 
-### 22.4 Snapshot Test
+### 22.4 Snapshot Inspection Test
 
 Expected behavior:
 
 ```txt
 Each major lifecycle stage emits a snapshot with consistent memory state.
+The snapshot can be inspected without requiring durable replay.
 ```
 
 ---
@@ -1225,6 +1338,7 @@ The example is successful if a viewer can understand these claims without readin
 5. The runtime graph makes memory lifecycle inspectable and snapshot-friendly.
 6. This is not a LangGraph replacement or memory engine replacement.
 7. This is a correctness layer that can sit between chat/agent frameworks and memory providers.
+8. The example follows the current `signal-kernel` API shape: `.get()` / `.peek()` for graph values and tuple return values for async resources.
 
 ---
 
@@ -1299,7 +1413,7 @@ Prompt rendering is derived state.
 Memory extraction produces dirty candidate facts.
 Memory consolidation is a state transition.
 Memory retention needs commit / rollback semantics.
-Memory debugging needs snapshots and replay.
+Memory debugging needs lifecycle snapshots first; replay can be explored after the snapshot boundary is clearer.
 ```
 
 Final message:
