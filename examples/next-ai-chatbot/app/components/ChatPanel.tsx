@@ -3,11 +3,20 @@
 import { FormEvent } from "react";
 import { ChatMessage } from "../chatTypes";
 
+type ArchitectureRow = {
+  label: string;
+  value: string;
+};
+
 type ChatPanelProps = {
   eyebrow: string;
   input: string;
   isStreaming: boolean;
   messages: ChatMessage[];
+  architectureRows?: ArchitectureRow[];
+  canSubmit?: boolean;
+  policyLabel?: string;
+  ownershipLabel?: string;
   runtimeStatus?: string;
   streamSize?: number;
   onInputChange(value: string): void;
@@ -20,14 +29,25 @@ export function ChatPanel({
   input,
   isStreaming,
   messages,
+  architectureRows = [],
+  canSubmit = input.trim().length > 0 && !isStreaming,
+  policyLabel = "single active stream / keep partial on interrupt",
+  ownershipLabel,
   runtimeStatus,
   streamSize,
   onInputChange,
   onSubmit,
   onStop,
 }: ChatPanelProps) {
+  const fieldId = `${eyebrow.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-chat-input`;
+  const policyId = `${fieldId}-policy`;
+  const hasArchitectureRows = architectureRows.length > 0;
+
   return (
-    <section className="chat-panel" aria-label={eyebrow}>
+    <section
+      className={`chat-panel${hasArchitectureRows ? " with-architecture" : ""}`}
+      aria-label={eyebrow}
+    >
       <div className="chat-header">
         <div>
           <p className="eyebrow">{eyebrow}</p>
@@ -38,9 +58,24 @@ export function ChatPanel({
               {typeof streamSize === "number" ? ` / ${streamSize} chars` : ""}
             </p>
           ) : null}
+          <p className="policy-meta">{policyLabel}</p>
+          {ownershipLabel ? (
+            <p className="ownership-meta">{ownershipLabel}</p>
+          ) : null}
         </div>
         <span className="status-pill">{isStreaming ? "streaming" : "idle"}</span>
       </div>
+
+      {hasArchitectureRows ? (
+        <dl className="architecture-panel" aria-label="Runtime ownership">
+          {architectureRows.map((row) => (
+            <div className="architecture-row" key={row.label}>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
 
       <div className="message-list" aria-live="polite">
         {messages.map((message) => (
@@ -57,12 +92,13 @@ export function ChatPanel({
       </div>
 
       <form className="composer" onSubmit={onSubmit}>
-        <label className="sr-only" htmlFor={`${eyebrow}-chat-input`}>
+        <label className="sr-only" htmlFor={fieldId}>
           Message
         </label>
         <input
           autoComplete="off"
-          id={`${eyebrow}-chat-input`}
+          aria-describedby={policyId}
+          id={fieldId}
           onChange={(event) => onInputChange(event.target.value)}
           placeholder="Ask about how this stream is wired..."
           type="text"
@@ -73,9 +109,16 @@ export function ChatPanel({
             Stop
           </button>
         ) : (
-          <button type="submit">Send</button>
+          <button disabled={!canSubmit} type="submit">
+            Send
+          </button>
         )}
       </form>
+      <p className="submit-policy" id={policyId}>
+        {isStreaming
+          ? "Submit is locked until this assistant stream finishes or is stopped."
+          : "Submit starts one assistant stream."}
+      </p>
     </section>
   );
 }

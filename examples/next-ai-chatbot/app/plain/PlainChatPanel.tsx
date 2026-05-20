@@ -120,9 +120,17 @@ export function PlainChatPanel() {
   return (
     <ChatPanel
       eyebrow="Plain React"
+      architectureRows={[
+        { label: "State owner", value: "React useState" },
+        { label: "Stream owner", value: "fetch reader loop inside component" },
+        { label: "Policy owner", value: "handleSubmit, catch, stopStreaming" },
+        { label: "Render bridge", value: "setMessages on every chunk" },
+      ]}
+      canSubmit={input.trim().length > 0 && !isStreaming}
       input={input}
       isStreaming={isStreaming}
       messages={messages}
+      ownershipLabel="Policy lives in component state: messages, abortRef, partial draft, status."
       onInputChange={setInput}
       onSubmit={handleSubmit}
       onStop={stopStreaming}

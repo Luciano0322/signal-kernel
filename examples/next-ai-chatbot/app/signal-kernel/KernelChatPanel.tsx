@@ -55,9 +55,17 @@ export function KernelChatPanel() {
   return (
     <ChatPanel
       eyebrow="signal-kernel"
+      architectureRows={[
+        { label: "State owner", value: "chatGraph signals and computed values" },
+        { label: "Stream owner", value: "createStreamResource tuple" },
+        { label: "Policy owner", value: "graph actions and stream meta" },
+        { label: "Render bridge", value: "useStreamResource(graph.stream)" },
+      ]}
+      canSubmit={canSubmit}
       input={input}
       isStreaming={isStreaming}
       messages={visibleMessages}
+      ownershipLabel="Policy lives in chatGraph: request signal, stream resource, active assistant draft."
       runtimeStatus={runtimeStatus}
       streamSize={streamSize}
       onInputChange={graph.actions.setInput}

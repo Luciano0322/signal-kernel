@@ -35,6 +35,7 @@ export function createChatGraph() {
   const messages = signal<ChatMessage[]>([createWelcomeMessage()]);
   const activeAssistant = signal<ChatMessage | null>(null);
   const request = signal<ChatMessage[] | null>(null);
+  let readStreamText = () => "";
 
   function commitAssistant(content: string, status: ChatMessage["status"]) {
     const assistant = activeAssistant.peek();
@@ -100,12 +101,13 @@ export function createChatGraph() {
         commitAssistant(content, "done");
       },
       onErrorEffect: () => {
-        commitAssistant("Something went wrong.", "error");
+        commitAssistant(readStreamText() || "Something went wrong.", "error");
       },
     },
   );
 
   const [streamText, streamMeta] = stream;
+  readStreamText = () => streamText() ?? "";
   const canSubmit = computed(() => {
     return input.get().trim().length > 0 && activeAssistant.get() === null;
   });

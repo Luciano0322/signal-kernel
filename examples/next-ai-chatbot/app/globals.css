@@ -123,6 +123,10 @@ input {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
 }
 
+.chat-panel.with-architecture {
+  grid-template-rows: auto auto 1fr auto auto;
+}
+
 .chat-header {
   display: flex;
   align-items: center;
@@ -165,6 +169,19 @@ h2 {
     "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
+.policy-meta,
+.ownership-meta {
+  max-width: 680px;
+  margin: 6px 0 0;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.policy-meta {
+  color: #99f6e4;
+}
+
 .status-pill {
   min-width: 86px;
   border: 1px solid #134e4a;
@@ -173,6 +190,37 @@ h2 {
   color: #99f6e4;
   font-size: 13px;
   text-align: center;
+}
+
+.architecture-panel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  border-bottom: 1px solid #27272a;
+  background: #27272a;
+}
+
+.architecture-row {
+  min-width: 0;
+  padding: 14px;
+  background: rgba(9, 9, 11, 0.42);
+}
+
+.architecture-row dt {
+  margin: 0 0 6px;
+  color: #a1a1aa;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.architecture-row dd {
+  margin: 0;
+  color: #f4f4f5;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .message-list {
@@ -228,7 +276,7 @@ h2 {
   grid-template-columns: 1fr auto;
   gap: 10px;
   border-top: 1px solid #27272a;
-  padding: 16px;
+  padding: 16px 16px 8px;
 }
 
 .composer input {
@@ -257,6 +305,20 @@ h2 {
 
 .composer button:hover {
   background: #115e59;
+}
+
+.composer button:disabled {
+  border-color: #3f3f46;
+  background: #27272a;
+  color: #71717a;
+  cursor: not-allowed;
+}
+
+.submit-policy {
+  margin: 0;
+  padding: 0 16px 16px;
+  color: #a1a1aa;
+  font-size: 12px;
 }
 
 .sr-only {
@@ -301,10 +363,15 @@ h2 {
   }
 
   .chat-header,
+  .architecture-row,
   .message-list,
   .composer {
     padding-right: 14px;
     padding-left: 14px;
+  }
+
+  .architecture-panel {
+    grid-template-columns: 1fr;
   }
 
   .composer {

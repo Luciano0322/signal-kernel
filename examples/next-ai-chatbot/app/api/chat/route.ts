@@ -43,6 +43,10 @@ function buildMockAnswer(prompt: string) {
   ];
 }
 
+function shouldInterruptStream(prompt: string) {
+  return /\b(error|fail|interrupt)\b/i.test(prompt);
+}
+
 export async function POST(request: Request) {
   let body: ChatRequest;
 
@@ -59,12 +63,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "A user message is required" }, { status: 400 });
   }
 
+  const prompt = lastUserMessage.content.trim();
+  const chunks = buildMockAnswer(prompt);
+  const interrupt = shouldInterruptStream(prompt);
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for (const chunk of buildMockAnswer(lastUserMessage.content.trim())) {
+        for (const [index, chunk] of chunks.entries()) {
           await sleep(220, request.signal);
           controller.enqueue(encoder.encode(chunk));
+
+          if (interrupt && index === 1) {
+            controller.error(new Error("Mock stream interrupted after partial text."));
+            return;
+          }
         }
 
         controller.close();

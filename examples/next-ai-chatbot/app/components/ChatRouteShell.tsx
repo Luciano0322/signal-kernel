@@ -14,9 +14,9 @@ export function ChatRouteShell({ active, children }: ChatRouteShellProps) {
           <p className="eyebrow">Next.js streaming routes</p>
           <h1>AI Chatbot Comparison</h1>
           <p className="comparison-note">
-            Each implementation is its own route. The form and stream reader stay
-            inside client components, while the route page and navigation remain
-            server-rendered.
+            Both routes use the same single-active-stream UX. The difference is
+            where the streaming policy lives: component-local React state or a
+            signal-kernel graph.
           </p>
           <nav className="route-nav" aria-label="Chatbot implementations">
             <Link
