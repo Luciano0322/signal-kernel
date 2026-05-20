@@ -66,6 +66,9 @@ React should not own the stream lifecycle. React should call graph actions and r
 * Expose the raw stream resource tuple from the graph.
 * Consume the stream tuple in React with `useStreamResource(graph.stream)`.
 * Make partial assistant text visible while chunks arrive.
+* Make stream interruption behavior explicit.
+* Use a single-active-stream policy for the first version.
+* Preserve partial assistant text on cancel and error.
 * Commit the assistant response into message history when the stream succeeds.
 * Show where cancellation, partial state, and future snapshot boundaries belong.
 
@@ -81,6 +84,13 @@ React should not own the stream lifecycle. React should call graph actions and r
 * Making `@signal-kernel/react` own chatbot workflow semantics.
 * Wrapping `createStreamResource()` into a React-specific resource shape.
 * Teaching every Next.js AI deployment pattern.
+* Auto-cancelling a previous stream when a new prompt is submitted.
+* Supporting multiple concurrent assistant streams.
+* Retrying a failed stream.
+* Resuming an interrupted stream.
+* Persisting messages across page reloads.
+* Guaranteeing provider-level abort propagation in the first version.
+* Proving full streaming backpressure correctness.
 
 ---
 
@@ -248,6 +258,57 @@ The stream must remain the raw `createStreamResource()` tuple. It should not be 
 
 ---
 
+## Streaming Policy
+
+The first version should intentionally use a single-active-stream policy.
+
+This policy should be visible in the graph and documentation, not only implied by UI behavior.
+
+```txt
+single active assistant stream
+  submit allowed only when activeAssistant is null
+  input may change while streaming
+  second submit is blocked while streaming
+  user can cancel the active stream
+```
+
+The policy is:
+
+* A user can submit only when no assistant stream is active.
+* While streaming, the input can still be edited, but submit is disabled.
+* Cancelling keeps the partial assistant text that has already arrived.
+* Network or stream errors keep the partial assistant text that has already arrived.
+* Successful completion commits the assistant draft as a `done` message.
+* Cancelled streams commit the assistant draft as an `aborted` message.
+* Failed streams commit the assistant draft as an `error` message.
+* A new prompt cannot overwrite an active assistant draft.
+
+The stream resource should express the partial-data policy:
+
+```ts
+const stream = createStreamResource(
+  () => request.get(),
+  streamAssistantResponse,
+  {
+    initialValue: "",
+    reduce: (current, chunk) => `${current ?? ""}${chunk}`,
+    onCancel: "keep-partial",
+    onError: "keep-partial",
+  },
+);
+```
+
+This is the first behavior the example should make obvious:
+
+```txt
+partial data is not an accident
+partial data is a stream policy
+```
+
+The example should not silently discard partial assistant text after cancel or error.
+
+---
+
 ## React Adapter Boundary
 
 The React component should create the graph once:
@@ -328,10 +389,31 @@ The plain route should intentionally keep the stream inside component state:
 * `isStreaming`
 * `AbortController`
 * partial assistant message mutation
+* local cancellation policy
+* local error policy
+* local concurrent-submit guard
 
 This route is not wrong. It is the control case.
 
 The comparison should show that small streaming UIs can be implemented with React state, but workflow ownership becomes component-local. The `signal-kernel` route demonstrates how the same workflow can move into a framework-agnostic graph.
+
+The plain route should make the comparison concrete:
+
+```txt
+plain React
+  component owns partial text
+  component owns cancellation status
+  component owns error status
+  component owns "can submit" policy
+
+signal-kernel
+  graph owns partial text
+  graph owns stream status transition
+  graph owns active assistant draft
+  graph owns "can submit" policy
+```
+
+The point is not that plain React cannot handle streaming. The point is that streaming workflow state grows inside the component unless it is given a graph boundary.
 
 ---
 
@@ -379,6 +461,7 @@ When the user submits a prompt:
 * an assistant draft becomes active
 * the stream resource starts
 * streamed chunks update the visible assistant draft
+* further submits are blocked while the assistant draft is active
 
 ### Success
 
@@ -394,7 +477,10 @@ When the stream completes:
 When the stream fails:
 
 * the assistant draft should become an error message
-* partial text may be preserved depending on stream resource policy
+* partial text that already arrived should be preserved
+* the assistant draft should be committed to message history with `error` status
+* the active assistant draft should be cleared
+* the request signal should be reset
 * the UI should allow another submission
 
 ### Cancel
@@ -402,11 +488,25 @@ When the stream fails:
 When the user cancels:
 
 * the stream resource should be cancelled
-* partial text may be preserved
+* partial text that already arrived should be preserved
 * the assistant message should be marked as aborted
+* the assistant draft should be committed to message history with `aborted` status
+* the active assistant draft should be cleared
+* the request signal should be reset
 * the UI should allow another submission
 
 The current example may use stream resource cancellation as the graph-level cancellation boundary. A production provider integration should also connect cancellation to the underlying `fetch()` or provider stream when needed.
+
+### Consecutive Input
+
+When the user types another message while an assistant stream is active:
+
+* the input may change
+* submit should remain disabled
+* the active stream should not be overwritten
+* the user must wait for success, error, or cancel before submitting again
+
+This is intentionally not an auto-cancel policy.
 
 ---
 
@@ -441,8 +541,11 @@ Required graph-level tests:
 * stream chunks accumulate into assistant text
 * stream success commits the assistant message
 * stream error commits an error message
-* cancellation preserves or commits partial text according to policy
+* cancellation preserves partial text and commits an aborted message
+* stream error preserves partial text and commits an error message
 * `canSubmit` is false while an assistant stream is active
+* changing input while streaming does not start another stream
+* a second submit while streaming does not overwrite the active assistant draft
 
 Required React adapter checks:
 
@@ -472,6 +575,9 @@ The example README should explain:
 * why `chatGraph` owns workflow state
 * why React consumes `graph.stream` with `useStreamResource(graph.stream)`
 * why adapters should not reshape stream resources
+* what single-active-stream means
+* why cancel and error keep partial assistant text
+* why the plain route is a control case rather than an incorrect implementation
 * what parts would change when replacing the mock route with a real provider
 * what snapshot questions the example intentionally leaves open
 
@@ -492,6 +598,34 @@ The first version should stay provider-free so the runtime shape is easy to run 
 Eventually, yes.
 
 For the first graph example, stream resource cancellation is enough to demonstrate the graph-level boundary. A production provider integration should propagate cancellation to `AbortController`, the provider SDK, or the underlying stream reader.
+
+### Should submitting a new prompt auto-cancel the current stream?
+
+Not in the first version.
+
+Auto-cancel is a valid streaming policy, but it is not the policy this example should teach first.
+
+The first version should require a single active assistant stream:
+
+```txt
+streaming -> submit disabled
+cancel -> partial text preserved as aborted
+then user may submit again
+```
+
+This keeps workflow ownership easy to inspect and avoids mixing two policies in one example.
+
+### Should the example support parallel assistant streams?
+
+No.
+
+Parallel streams require per-message stream resources, request ids, and independent cancellation. That is a useful future example, but it would distract from the first goal: teach one stream resource flowing through one active assistant draft.
+
+### Should the example support retry or resume?
+
+No.
+
+Retry and resume are product-level policies. Resume also depends on provider and server support. This RFC should only preserve partial text and make the interrupted state explicit.
 
 ### Should the graph expose writable signals directly?
 
@@ -517,6 +651,8 @@ Build a Next.js chatbot streaming example with two routes:
 Use a deterministic mock streaming route instead of a real AI provider.
 
 In the signal-kernel route, keep the workflow inside `chatGraph.ts`. Use `signal`, `computed`, and `createStreamResource()` to model input, message history, active assistant draft, request state, and streaming assistant text.
+
+Use a single-active-stream policy. While an assistant stream is active, additional submits are blocked. Cancel and error should preserve partial assistant text and commit the assistant draft with `aborted` or `error` status.
 
 Expose the raw stream resource tuple as `graph.stream`.
 
