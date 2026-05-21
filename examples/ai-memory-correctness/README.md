@@ -14,8 +14,7 @@ partial retain failures, and weak inspection boundaries.
 
 ## Current Status
 
-This directory currently implements Task 1, Task 2, and the framework-neutral
-core of Task 3 from the RFC.
+This directory currently implements Task 1 through Task 4 from the RFC.
 
 Task 1 provides the static shell:
 
@@ -48,6 +47,15 @@ Task 3 currently provides the memory graph core:
 * `renderedMemoryPrompt` computed value
 * memory refresh invalidation through a revision signal
 * tests for stale recall race and prompt derivation
+
+Task 4 provides mock model streaming:
+
+* deterministic mock model stream
+* `modelStream` resource through `createStreamResource()`
+* model stream input derived from current user message and rendered memory prompt
+* generation is gated on successful recall
+* cancellation keeps partial streamed text
+* tests for streaming, source changes, and cancellation
 
 The React workbench still renders static fixture data. It has not been wired to
 the graph through `@signal-kernel/react` yet.

@@ -70,6 +70,29 @@ async function flushAsync() {
   await Promise.resolve();
 }
 
+async function flushTimers(ms = 0) {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+  await flushAsync();
+}
+
+async function waitFor(assertion: () => void, attempts = 20) {
+  let lastError: unknown;
+
+  for (let i = 0; i < attempts; i++) {
+    try {
+      assertion();
+      return;
+    } catch (error) {
+      lastError = error;
+      await flushTimers(0);
+    }
+  }
+
+  throw lastError;
+}
+
 function createControllableDriver() {
   const calls: RecallCall[] = [];
   const driver: MemoryDriver = {
@@ -200,5 +223,81 @@ describe("createMemoryGraph", () => {
     expect(graph.computed.renderedPrompt.get()).not.toContain(
       "publishes technical articles",
     );
+  });
+
+  it("streams a mock model response from the rendered memory prompt", async () => {
+    const driver = createLocalMemoryDriver({
+      initialFacts: [{ scope, facts: [devtoFact] }],
+      now: () => 1,
+    });
+    const graph = createMemoryGraph({
+      driver,
+      initialMessage: "DEV.to launch",
+      scope: () => scope,
+      streamDelayMs: 0,
+    });
+
+    await flushAsync();
+    await flushAsync();
+
+    const [text, meta] = graph.resources.modelStream;
+
+    await waitFor(() => {
+      expect(meta.status()).toBe("success");
+      expect(text()).toContain("DEV.to launch");
+      expect(text()).toContain("User publishes technical articles on DEV.to.");
+    });
+  });
+
+  it("keeps partial streamed text when the model stream is cancelled", async () => {
+    const driver = createLocalMemoryDriver({
+      initialFacts: [{ scope, facts: [devtoFact] }],
+      now: () => 1,
+    });
+    const graph = createMemoryGraph({
+      driver,
+      initialMessage: "DEV.to launch",
+      scope: () => scope,
+      streamDelayMs: 5,
+    });
+    const [text, meta] = graph.resources.modelStream;
+
+    await waitFor(() => {
+      expect(text()?.length ?? 0).toBeGreaterThan(0);
+      expect(meta.status()).toBe("streaming");
+    });
+
+    const partial = text() ?? "";
+
+    graph.actions.cancelModelStream("test-cancel");
+    await flushAsync();
+
+    expect(meta.status()).toBe("cancelled");
+    expect(text()).toBe(partial);
+  });
+
+  it("starts a new stream when the user message changes", async () => {
+    const driver = createLocalMemoryDriver({
+      initialFacts: [{ scope, facts: [devtoFact, styleFact] }],
+      now: () => 1,
+    });
+    const graph = createMemoryGraph({
+      driver,
+      initialMessage: "DEV.to",
+      scope: () => scope,
+      streamDelayMs: 0,
+    });
+    const [text] = graph.resources.modelStream;
+
+    await waitFor(() => {
+      expect(text()).toContain("DEV.to");
+    });
+
+    graph.actions.setCurrentUserMessage("architecture");
+
+    await waitFor(() => {
+      expect(text()).toContain("architecture");
+      expect(text()).toContain("precise architecture explanations");
+    });
   });
 });
