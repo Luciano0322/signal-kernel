@@ -14,7 +14,7 @@ partial retain failures, and weak inspection boundaries.
 
 ## Current Status
 
-This directory currently implements Task 1 through Task 5 from the RFC.
+This directory currently implements Task 1 through Task 6 from the RFC.
 
 Task 1 provides the static shell:
 
@@ -68,8 +68,27 @@ Task 5 provides the retention lifecycle:
 * `retainState` signal for lifecycle visibility
 * tests for commit and partial-write rollback
 
-The React workbench still renders static fixture data. It has not been wired to
-the graph through `@signal-kernel/react` yet.
+Task 6 provides snapshot timeline inspection:
+
+* graph-owned runtime event log
+* graph-owned runtime snapshots
+* manual `recordSnapshot()` action
+* automatic recall and stream checkpoints
+* retain commit / rollback checkpoints
+* React workbench wired through `@signal-kernel/react`
+* UI controls that call graph actions instead of owning memory lifecycle state
+* selectable snapshot detail view for captured prompt, statuses, facts, and
+  recent lifecycle events
+* selectable scenario path so readers can map the UI to the RFC correctness
+  cases
+
+The React workbench now renders live graph state. It uses adapter hooks only at
+the rendering boundary:
+
+* `useSignalValue()` for graph signals
+* `useComputedValue()` for derived prompt and recall status
+* `useResource()` for recalled facts
+* `useStreamResource()` for the mock model stream
 
 ## Run
 
@@ -85,7 +104,7 @@ The dev server uses port `5178`.
 pnpm -F @signal-kernel/example-ai-memory-correctness typecheck
 ```
 
-## Planned Phases
+## Implemented Phases
 
 ```txt
 Task 1: static demo shell and domain model
@@ -105,6 +124,22 @@ V1 should prove:
 * candidate facts are not committed memory facts
 * retention commits or rolls back as an explicit lifecycle transition
 * snapshots are local runtime inspection artifacts
+
+## Snapshot Boundary
+
+Snapshots in this example are inspection artifacts, not the final
+`@signal-kernel/snapshot` format.
+
+Each snapshot captures:
+
+* current memory driver snapshot
+* rendered memory prompt
+* stream status
+* retain status
+* lifecycle events that happened before the snapshot
+
+The point is to make memory lifecycle state observable before defining durable
+replay, cross-runtime transfer, or a stable snapshot serialization package.
 
 V1 should not define:
 

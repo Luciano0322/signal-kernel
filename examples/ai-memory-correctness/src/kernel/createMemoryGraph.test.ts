@@ -249,6 +249,36 @@ describe("createMemoryGraph", () => {
     });
   });
 
+  it("records stream lifecycle snapshots as inspection artifacts", async () => {
+    let time = 0;
+    const driver = createLocalMemoryDriver({
+      initialFacts: [{ scope, facts: [devtoFact] }],
+      now: () => ++time,
+    });
+    const graph = createMemoryGraph({
+      driver,
+      initialMessage: "DEV.to launch",
+      now: () => ++time,
+      scope: () => scope,
+      streamDelayMs: 0,
+    });
+
+    await waitFor(() => {
+      expect(graph.resources.modelStream[1].status()).toBe("success");
+    });
+
+    const beforeCount = graph.signals.snapshots.get().length;
+    const snapshot = await graph.actions.recordSnapshot("manual-inspection");
+    const events = graph.signals.events.get();
+
+    expect(graph.signals.snapshots.get()).toHaveLength(beforeCount + 1);
+    expect(snapshot.label).toBe("manual-inspection");
+    expect(snapshot.renderedPrompt).toContain("DEV.to");
+    expect(snapshot.streamStatus).toBe("success");
+    expect(events.map((event) => event.type)).toContain("snapshot.created");
+    expect(events.map((event) => event.type)).toContain("stream.completed");
+  });
+
   it("keeps partial streamed text when the model stream is cancelled", async () => {
     const driver = createLocalMemoryDriver({
       initialFacts: [{ scope, facts: [devtoFact] }],
@@ -336,6 +366,21 @@ describe("createMemoryGraph", () => {
         "AI memory correctness",
       );
     });
+
+    expect(graph.signals.events.get().map((event) => event.type)).toEqual(
+      expect.arrayContaining([
+        "extract.started",
+        "extract.resolved",
+        "consolidation.planned",
+        "retain.started",
+        "retain.committed",
+        "snapshot.created",
+      ]),
+    );
+    const commitSnapshots = graph.signals.snapshots.get();
+    expect(commitSnapshots.map((snapshot) => snapshot.label)).toContain(
+      "after-retain-commit",
+    );
   });
 
   it("rolls back failed retention and exposes rolled_back state", async () => {
@@ -363,5 +408,12 @@ describe("createMemoryGraph", () => {
     expect(graph.signals.retainState.get().status).toBe("rolled_back");
     expect(graph.signals.retainState.get().error).toBeInstanceOf(Error);
     expect(snapshot.facts).toEqual([]);
+    expect(graph.signals.events.get().map((event) => event.type)).toContain(
+      "retain.rolled_back",
+    );
+    const rollbackSnapshots = graph.signals.snapshots.get();
+    expect(rollbackSnapshots.map((snapshot) => snapshot.label)).toContain(
+      "after-retain-rollback",
+    );
   });
 });
