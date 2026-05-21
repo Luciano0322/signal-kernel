@@ -14,7 +14,9 @@ partial retain failures, and weak inspection boundaries.
 
 ## Current Status
 
-This directory currently implements Task 1 from the RFC:
+This directory currently implements Task 1 and Task 2 from the RFC.
+
+Task 1 provides the static shell:
 
 * Vite + React example shell
 * domain types for memory facts, candidate facts, turns, events, and snapshots
@@ -24,6 +26,16 @@ This directory currently implements Task 1 from the RFC:
 * static timeline panel
 * static graph inspector
 * static snapshot inspection panel
+
+Task 2 provides the local memory driver:
+
+* in-memory scoped fact store
+* keyword recall
+* inspect snapshots
+* consolidation plan application
+* failure injection for partial retain scenarios
+* restore helper for later retain transaction rollback
+* driver tests that document the storage/runtime boundary
 
 No signal-kernel graph wiring is active yet.
 
@@ -45,7 +57,7 @@ pnpm -F @signal-kernel/example-ai-memory-correctness typecheck
 
 ```txt
 Task 1: static demo shell and domain model
-Task 2: local memory driver
+Task 2: local memory driver and failure injection
 Task 3: signal-kernel memory graph
 Task 4: mock model streaming
 Task 5: extraction, consolidation, retain transaction
