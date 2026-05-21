@@ -14,7 +14,7 @@ partial retain failures, and weak inspection boundaries.
 
 ## Current Status
 
-This directory currently implements Task 1 through Task 4 from the RFC.
+This directory currently implements Task 1 through Task 5 from the RFC.
 
 Task 1 provides the static shell:
 
@@ -56,6 +56,17 @@ Task 4 provides mock model streaming:
 * generation is gated on successful recall
 * cancellation keeps partial streamed text
 * tests for streaming, source changes, and cancellation
+
+Task 5 provides the retention lifecycle:
+
+* deterministic candidate extraction
+* deterministic consolidation planning
+* insert / merge / supersede / skip actions
+* explicit retain transaction
+* rollback through driver snapshot restore
+* `retainTurn` graph action
+* `retainState` signal for lifecycle visibility
+* tests for commit and partial-write rollback
 
 The React workbench still renders static fixture data. It has not been wired to
 the graph through `@signal-kernel/react` yet.

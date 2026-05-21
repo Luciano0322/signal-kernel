@@ -300,4 +300,68 @@ describe("createMemoryGraph", () => {
       expect(text()).toContain("precise architecture explanations");
     });
   });
+
+  it("retains extracted memory and refreshes recalled facts after commit", async () => {
+    const driver = createLocalMemoryDriver({
+      initialFacts: [{ scope, facts: [] }],
+      now: () => 1,
+    });
+    const graph = createMemoryGraph({
+      driver,
+      initialMessage: "memory correctness",
+      scope: () => scope,
+      streamDelayMs: 0,
+    });
+
+    await flushAsync();
+
+    expect(graph.resources.recalledFacts[0]()).toEqual([]);
+
+    const result = await graph.actions.retainTurn({
+      assistantMessage:
+        "We should validate AI memory correctness before building a full AI runtime.",
+      turnId: "turn-retain",
+      userMessage: "memory correctness",
+    });
+    await flushAsync();
+
+    expect(result.status).toBe("committed");
+    expect(graph.signals.retainState.get().status).toBe("committed");
+
+    await waitFor(() => {
+      expect(graph.resources.recalledFacts[0]()?.map((fact) => fact.id)).toContain(
+        "memory-turn-retain-memory-correctness",
+      );
+      expect(graph.computed.renderedPrompt.get()).toContain(
+        "AI memory correctness",
+      );
+    });
+  });
+
+  it("rolls back failed retention and exposes rolled_back state", async () => {
+    const driver = createLocalMemoryDriver({
+      failOnActionIndex: 1,
+      initialFacts: [{ scope, facts: [] }],
+      now: () => 1,
+    });
+    const graph = createMemoryGraph({
+      driver,
+      initialMessage: "memory correctness snapshot",
+      scope: () => scope,
+      streamDelayMs: 0,
+    });
+
+    const result = await graph.actions.retainTurn({
+      assistantMessage:
+        "We should validate AI memory correctness and snapshot inspection before a full AI runtime.",
+      turnId: "turn-rollback",
+      userMessage: "memory correctness snapshot",
+    });
+    const snapshot = await driver.inspect(scope);
+
+    expect(result.status).toBe("rolled_back");
+    expect(graph.signals.retainState.get().status).toBe("rolled_back");
+    expect(graph.signals.retainState.get().error).toBeInstanceOf(Error);
+    expect(snapshot.facts).toEqual([]);
+  });
 });

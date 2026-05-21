@@ -1,15 +1,30 @@
 import { computed, signal } from "@signal-kernel/core";
 import { createResource, type AsyncMeta } from "@signal-kernel/async-runtime";
+import { consolidateFacts } from "./consolidateFacts";
+import { extractCandidateFacts } from "./extractCandidateFacts";
 import { renderMemoryPrompt } from "./renderMemoryPrompt";
+import {
+  retainTransaction,
+  type RestorableMemoryDriver,
+} from "./retainTransaction";
 import type {
+  CandidateFact,
+  ConsolidateInput,
+  ConsolidationPlan,
+  ExtractInput,
   MemoryDriver,
   MemoryFact,
   MemoryScope,
   RecallResult,
+  RetainState,
+  RetainTurnInput,
+  RetainTurnResult,
 } from "./types";
 
 export type CreateMemoryRuntimeOptions = {
+  consolidate?: (input: ConsolidateInput) => Promise<ConsolidationPlan>;
   driver: MemoryDriver;
+  extract?: (input: ExtractInput) => Promise<CandidateFact[]>;
   render?: (facts: MemoryFact[]) => string;
   scope: () => MemoryScope;
 };
@@ -40,11 +55,80 @@ export type RecalledFactsResource = [
 ];
 
 export function createMemoryRuntime(options: CreateMemoryRuntimeOptions) {
+  const consolidate = options.consolidate ?? consolidateFacts;
+  const extract = options.extract ?? extractCandidateFacts;
   const render = options.render ?? renderMemoryPrompt;
   const memoryRevision = signal(0);
+  const retainState = signal<RetainState>({
+    status: "idle",
+    candidates: [],
+  });
 
   function notifyMemoryChanged() {
     memoryRevision.set((current) => current + 1);
+  }
+
+  function getRestorableDriver(): RestorableMemoryDriver {
+    if (!("restore" in options.driver)) {
+      throw new Error("retainTurn requires a memory driver with restore()");
+    }
+
+    return options.driver as RestorableMemoryDriver;
+  }
+
+  async function retainTurn(input: RetainTurnInput): Promise<RetainTurnResult> {
+    const scope = options.scope();
+    const driver = getRestorableDriver();
+
+    retainState.set({
+      status: "extracting",
+      candidates: [],
+    });
+
+    const candidates = await extract(input);
+
+    retainState.set({
+      status: "consolidating",
+      candidates,
+    });
+
+    const before = await driver.inspect(scope);
+    const plan = await consolidate({
+      candidates,
+      existingFacts: before.facts,
+    });
+
+    retainState.set({
+      status: "retaining",
+      before,
+      candidates,
+      plan,
+    });
+
+    const transaction = await retainTransaction({
+      before,
+      driver,
+      plan,
+      scope,
+    });
+    const result: RetainTurnResult = {
+      ...transaction,
+      candidates,
+      plan,
+    };
+
+    retainState.set({
+      status: result.status,
+      after: result.after,
+      before: result.before,
+      candidates,
+      error: result.status === "rolled_back" ? result.error : undefined,
+      plan,
+    });
+
+    notifyMemoryChanged();
+
+    return result;
   }
 
   function createContext(contextOptions: CreateMemoryContextOptions) {
@@ -101,10 +185,12 @@ export function createMemoryRuntime(options: CreateMemoryRuntimeOptions) {
   return {
     actions: {
       notifyMemoryChanged,
+      retainTurn,
     },
     createContext,
     signals: {
       memoryRevision,
+      retainState,
     },
   };
 }

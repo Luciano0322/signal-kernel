@@ -82,6 +82,7 @@ export function createMemoryGraph(options: CreateMemoryGraphOptions) {
       cancelModelStream: modelStream[1].cancel,
       refreshMemory: runtime.actions.notifyMemoryChanged,
       reloadModelStream: modelStream[1].reload,
+      retainTurn: runtime.actions.retainTurn,
       setCurrentUserMessage,
     },
     context,
@@ -99,6 +100,7 @@ export function createMemoryGraph(options: CreateMemoryGraphOptions) {
     signals: {
       currentUserMessage,
       memoryRevision: runtime.signals.memoryRevision,
+      retainState: runtime.signals.retainState,
     },
   };
 }
