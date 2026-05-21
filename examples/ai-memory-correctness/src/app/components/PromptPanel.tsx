@@ -11,8 +11,8 @@ export function PromptPanel({ prompt }: PromptPanelProps) {
       </div>
       <pre>{prompt}</pre>
       <p className="panel-note">
-        In the graph phase this prompt will be a computed value, derived from
-        recalled facts and rendering policy.
+        This prompt is a computed value derived from the current recalled facts.
+        Candidate facts do not enter it until retention commits.
       </p>
     </section>
   );

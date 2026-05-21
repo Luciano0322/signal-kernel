@@ -59,11 +59,60 @@ export type ConsolidationPlan = {
   actions: ConsolidationAction[];
 };
 
+export type ExtractInput = {
+  assistantMessage: string;
+  turnId: string;
+  userMessage: string;
+};
+
+export type ConsolidateInput = {
+  candidates: CandidateFact[];
+  existingFacts: MemoryFact[];
+};
+
+export type RetainTurnInput = ExtractInput;
+
+export type RetainStatus =
+  | "idle"
+  | "extracting"
+  | "consolidating"
+  | "retaining"
+  | "committed"
+  | "rolled_back"
+  | "failed";
+
 export type MemorySnapshot = {
   scope: MemoryScope;
   facts: MemoryFact[];
   version: number;
   createdAt: number;
+};
+
+export type RetainTransactionResult =
+  | {
+      status: "committed";
+      before: MemorySnapshot;
+      after: MemorySnapshot;
+    }
+  | {
+      status: "rolled_back";
+      before: MemorySnapshot;
+      after: MemorySnapshot;
+      error: unknown;
+    };
+
+export type RetainTurnResult = RetainTransactionResult & {
+  candidates: CandidateFact[];
+  plan: ConsolidationPlan;
+};
+
+export type RetainState = {
+  status: RetainStatus;
+  candidates: CandidateFact[];
+  plan?: ConsolidationPlan;
+  before?: MemorySnapshot;
+  after?: MemorySnapshot;
+  error?: unknown;
 };
 
 export interface MemoryDriver {

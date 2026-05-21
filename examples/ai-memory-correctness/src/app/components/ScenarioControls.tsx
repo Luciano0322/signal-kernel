@@ -2,13 +2,19 @@ import type { ScenarioId, ScenarioSummary } from "../../model/types";
 
 type ScenarioControlsProps = {
   activeScenarioId: ScenarioId;
+  onSelect(id: ScenarioId): void;
   scenarios: ScenarioSummary[];
 };
 
 export function ScenarioControls({
   activeScenarioId,
+  onSelect,
   scenarios,
 }: ScenarioControlsProps) {
+  const activeScenario = scenarios.find(
+    (scenario) => scenario.id === activeScenarioId,
+  );
+
   return (
     <section className="panel scenario-panel" aria-label="Demo scenarios">
       <div className="panel-heading">
@@ -24,6 +30,7 @@ export function ScenarioControls({
                 : "scenario-button"
             }
             key={scenario.id}
+            onClick={() => onSelect(scenario.id)}
             type="button"
           >
             <span>{scenario.label}</span>
@@ -31,6 +38,11 @@ export function ScenarioControls({
           </button>
         ))}
       </div>
+      {activeScenario ? (
+        <p className="panel-note">
+          Selected path: {activeScenario.claim}
+        </p>
+      ) : null}
     </section>
   );
 }
