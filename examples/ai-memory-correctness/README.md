@@ -14,7 +14,8 @@ partial retain failures, and weak inspection boundaries.
 
 ## Current Status
 
-This directory currently implements Task 1 and Task 2 from the RFC.
+This directory currently implements Task 1, Task 2, and the framework-neutral
+core of Task 3 from the RFC.
 
 Task 1 provides the static shell:
 
@@ -37,7 +38,19 @@ Task 2 provides the local memory driver:
 * restore helper for later retain transaction rollback
 * driver tests that document the storage/runtime boundary
 
-No signal-kernel graph wiring is active yet.
+Task 3 currently provides the memory graph core:
+
+* `createMemoryRuntime()`
+* `createMemoryGraph()`
+* `currentUserMessage` signal
+* `recallQuery` computed value
+* `recalledFacts` async resource through `createResource()`
+* `renderedMemoryPrompt` computed value
+* memory refresh invalidation through a revision signal
+* tests for stale recall race and prompt derivation
+
+The React workbench still renders static fixture data. It has not been wired to
+the graph through `@signal-kernel/react` yet.
 
 ## Run
 
@@ -58,7 +71,7 @@ pnpm -F @signal-kernel/example-ai-memory-correctness typecheck
 ```txt
 Task 1: static demo shell and domain model
 Task 2: local memory driver and failure injection
-Task 3: signal-kernel memory graph
+Task 3: signal-kernel memory graph core
 Task 4: mock model streaming
 Task 5: extraction, consolidation, retain transaction
 Task 6: snapshot timeline inspection and documentation
