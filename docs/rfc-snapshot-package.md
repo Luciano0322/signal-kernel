@@ -58,9 +58,24 @@ reactive-proxy
 
 ai-memory-correctness
   -> snapshot starts as inspection artifact before becoming replay / restore infrastructure
+
+server-graph-transfer
+  -> writable server graph state can be encoded as JSON and restored into a compatible client graph
 ```
 
 These examples suggest that snapshot should not be designed as a single app-specific JSON shape. It should be a package-level boundary with explicit node identity, graph compatibility, encoding rules, and restore policy.
+
+The `server-graph-transfer` example is especially important because it proves the minimum useful transfer path before this package exists:
+
+```txt
+server graph
+  -> example-local JSON-safe payload
+  -> client compatible graph
+  -> restored writable signals
+  -> recomputed computed values
+```
+
+That local payload is a validation artifact, not a stable snapshot API.
 
 ---
 
@@ -169,6 +184,27 @@ scope.stream("assistantStream", assistantStream)
 
 This keeps the package honest: an application graph decides what is snapshot-worthy.
 
+### 5.2.1 Validation Examples Before Package Extraction
+
+Before `@signal-kernel/snapshot` exists, examples may use local transfer payload helpers to validate package requirements.
+
+Those helpers must be clearly documented as example-local and unstable:
+
+```txt
+captureProfileGraphPayload
+restoreProfileGraphPayload
+signal-kernel.example.server-graph-transfer.v0
+```
+
+They should not be presented as the final package API. Their job is to prove boundaries before extraction:
+
+```txt
+local helper proves requirement
+  -> snapshot RFC incorporates the requirement
+  -> package API is designed deliberately
+  -> example later migrates to official package
+```
+
 ### 5.3 Stable Node Identity
 
 Every captured node must have a stable ID.
@@ -261,12 +297,15 @@ The default v1 behavior should prefer explicit serialization over accidental sec
 | DevOps runtime | capture config and decision inputs | recompute decisions | capture async probe status | capture health stream value | exclude | decision id |
 | Reactive proxy | capture routes/upstreams/policy | recompute selected upstream | optional probe status | optional | exclude | config version |
 | AI memory correctness | capture memory scope and store snapshot | recompute prompt | capture recall status/value | capture model stream status/value | exclude | turn id, memory version |
+| Server graph transfer | capture server writable signals | recompute on client | not required in first proof | not required in first proof | exclude | graph id/version |
 | SSR restore | capture server graph state | recompute on client | capture success/preload state | optional completed/stable value | exclude | schema version |
 | Worker transfer | capture structured clone safe state | recompute in worker | capture transferable value state | optional | exclude | runtime version |
 | Offline resume | capture durable writable state | recompute | policy-based | policy-based | exclude | resume policy |
 | Optimistic rollback | capture committed base and optimistic value | recompute | capture mutation status | optional | exclude | mutation id |
 
 This matrix suggests that v1 should support signal capture / restore first, computed inspection second, and async / stream snapshot inspection before promising full async restore.
+
+The server graph transfer row is the first proof target. It demonstrates that writable signals alone can restore a compatible graph enough for computed values to continue correctly on the client.
 
 ---
 
@@ -866,7 +905,19 @@ Goal: establish package boundary.
 * Restore signal values into compatible graph
 * Add strict restore validation
 
-Goal: prove the minimum useful snapshot boundary.
+Goal: deliver the first useful snapshot proof.
+
+This phase should be treated as the first real package milestone, not merely an internal step. The `server-graph-transfer` example has already validated the minimum behavior:
+
+```txt
+writable signals captured on server
+  -> JSON-safe payload
+  -> compatible client graph
+  -> restored signals
+  -> computed values recompute
+```
+
+The official package should generalize this behavior without importing renderer or server framework concepts.
 
 ### Phase 3: JSON Codec and Diff
 
@@ -898,7 +949,8 @@ Goal: support examples without pretending live async work is serializable.
 Use the snapshot package in examples:
 
 * AI memory correctness V2 for replay / diff prototype
-* SSR mini example for server to client graph restore
+* Server graph transfer migration from local payload helpers to official snapshot APIs
+* SSR mini example only after graph transfer remains framework-neutral
 * Worker transfer example if needed
 
 Goal: validate package boundaries after core semantics exist.
@@ -982,6 +1034,21 @@ signal graph A
 
 This will anchor the package in graph state transfer rather than framework hydration.
 
+The existing `server-graph-transfer` example is the concrete precursor for this proof. Its local payload should eventually be replaced by:
+
+```txt
+captureProfileGraphPayload
+  -> createSnapshotScope + captureSnapshot
+
+restoreProfileGraphPayload
+  -> restoreSnapshot
+
+signal-kernel.example.server-graph-transfer.v0
+  -> signal-kernel.snapshot.v1
+```
+
+That migration should preserve the example's boundary: the server transfers graph state, the client restores a compatible graph, and the renderer only reads from that graph.
+
 ---
 
 ## 24. Final Recommendation
@@ -1003,4 +1070,3 @@ Recommended first claim:
 @signal-kernel/snapshot captures and restores explicit graph state across
 compatible graph instances. It is not a renderer hydration layer.
 ```
-

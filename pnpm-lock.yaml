@@ -255,6 +255,43 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.19.1)
 
+  examples/server-graph-transfer:
+    dependencies:
+      '@signal-kernel/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@signal-kernel/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.1
+        version: 22.19.1
+      '@types/react':
+        specifier: ^18.3.1
+        version: 18.3.28
+      '@types/react-dom':
+        specifier: ^18.3.1
+        version: 18.3.7(@types/react@18.3.28)
+      tsx:
+        specifier: ^4.8.1
+        version: 4.22.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@22.19.1)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.1)
+
   packages/async-runtime:
     dependencies:
       '@signal-kernel/core':
