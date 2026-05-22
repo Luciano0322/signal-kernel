@@ -50,12 +50,14 @@ It is the reactive kernel that frameworks and adapters can build on top of.
 
 ## Current Status
 
-Today, the project includes four usable packages:
+Today, the project includes four published packages:
 
 * **`@signal-kernel/core`** - the synchronous reactive kernel
 * **`@signal-kernel/async-runtime`** - async/runtime primitives built on top of core
 * **`@signal-kernel/react`** - a thin React lifecycle adapter for reading existing graph values
 * **`@signal-kernel/vue`** - a thin Vue scope adapter for reading existing graph values
+
+The workspace also contains an early **`@signal-kernel/snapshot`** package. It currently focuses on explicit graph capture, JSON-safe encoding, compatible signal restore, computed recomputation, diff, redaction, and inspect-only async/stream nodes.
 
 Framework adapters follow the same **thin-wrapper approach**: preserve runtime semantics instead of hiding them behind heavy framework-specific abstractions.
 
@@ -69,6 +71,7 @@ Framework adapters follow the same **thin-wrapper approach**: preserve runtime s
 | **@signal-kernel/async-runtime** | [npm](https://www.npmjs.com/package/@signal-kernel/async-runtime) | Async runtime primitives: `fromPromise`, `asyncSignal`, `createResource`, `createStreamResource` |
 | **@signal-kernel/react**         | [npm](https://www.npmjs.com/package/@signal-kernel/react)         | Thin React adapter for reading existing signal-kernel graph values in React                      |
 | **@signal-kernel/vue**           | [npm](https://www.npmjs.com/package/@signal-kernel/vue)           | Thin Vue adapter for exposing existing signal-kernel graph values as readonly Vue refs           |
+| **@signal-kernel/snapshot**      | workspace / early package                                         | Graph state capture, JSON-safe transfer, compatible restore, diff, and redaction                 |
 
 ---
 
@@ -354,7 +357,7 @@ It does not snapshot components, DOM state, hook state, or server component payl
 
 ## Snapshot Direction
 
-`@signal-kernel/snapshot` is currently in RFC and example-validation stage.
+`@signal-kernel/snapshot` is currently an early workspace package guided by RFCs and validation examples.
 
 The intended responsibility is graph state transfer:
 
@@ -380,7 +383,7 @@ See:
 Near-term focus:
 
 - stabilize `core` and `async-runtime`
-- implement the first `@signal-kernel/snapshot` package around explicit graph capture, JSON-safe encoding, compatible restore, and computed recomputation
+- harden the first `@signal-kernel/snapshot` package around explicit graph capture, JSON-safe encoding, compatible restore, and computed recomputation
 - use `examples/server-graph-transfer` as the first validation path for signal capture / restore
 - explore JSON and MessagePack snapshot encoding after the first document shape is stable
 - expand examples and documentation
@@ -419,7 +422,7 @@ Design records:
 - [`docs/rfc-async-runtime.md`](./docs/rfc-async-runtime.md) records the adopted async-runtime boundary.
 - [`docs/rfc-react-adapter.md`](./docs/rfc-react-adapter.md) describes the React adapter design.
 - [`docs/rfc-vue-adapter.md`](./docs/rfc-vue-adapter.md) describes the Vue adapter design.
-- [`docs/rfc-snapshot-package.md`](./docs/rfc-snapshot-package.md) defines the planned snapshot package boundary.
+- [`docs/rfc-snapshot-package.md`](./docs/rfc-snapshot-package.md) defines the snapshot package boundary.
 - [`docs/rfc-server-graph-transfer-example.md`](./docs/rfc-server-graph-transfer-example.md) defines the server graph transfer validation example.
 
 The most important rule is:

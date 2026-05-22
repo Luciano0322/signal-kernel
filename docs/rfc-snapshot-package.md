@@ -2,7 +2,7 @@
 
 ## 0. Status
 
-**Status:** Draft
+**Status:** Draft / initial package implementation
 **Target:** `packages/snapshot`
 **Primary Goal:** Define a framework-neutral snapshot boundary for capturing, encoding, comparing, and restoring compatible `signal-kernel` graph state.
 **Non-goal:** Build a React hydration layer, Vue hydration layer, SSR framework integration, persistence database, event-sourcing system, or general-purpose time-travel debugger.
@@ -184,9 +184,9 @@ scope.stream("assistantStream", assistantStream)
 
 This keeps the package honest: an application graph decides what is snapshot-worthy.
 
-### 5.2.1 Validation Examples Before Package Extraction
+### 5.2.1 Validation Examples Before Stable Package APIs
 
-Before `@signal-kernel/snapshot` exists, examples may use local transfer payload helpers to validate package requirements.
+Before `@signal-kernel/snapshot` has stable APIs, examples may use local transfer payload helpers to validate package requirements.
 
 Those helpers must be clearly documented as example-local and unstable:
 
@@ -442,7 +442,18 @@ packages/snapshot/
 
 ### 9.3 Initial Dependencies
 
-The snapshot package may depend on:
+The initial snapshot package should avoid runtime dependencies when possible.
+
+It can use structural types for signal-like, resource-like, and stream-like values:
+
+```txt
+{ get, peek, set }
+[value, meta]
+```
+
+This keeps snapshot lower than core, async-runtime, and framework adapters.
+
+Future versions may depend on:
 
 * `@signal-kernel/core`
 * `@signal-kernel/async-runtime` types if async snapshot adapters are included
