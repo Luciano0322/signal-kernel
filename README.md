@@ -324,18 +324,70 @@ flowchart TD
 
 ---
 
+## Current Examples
+
+The examples are used to validate runtime boundaries before extracting broader packages.
+
+| Example | What it demonstrates |
+| ------- | -------------------- |
+| `examples/search-race-condition` | Race-condition-safe async resources across React and Vue renderers |
+| `examples/devops-runtime` | DevOps-style runtime decisions modeled as a reactive graph |
+| `examples/micro-frontend-runtime` | Shared graph contract consumed by React and Vue islands |
+| `examples/next-ai-chatbot` | Streaming chatbot flow with `createStreamResource` and the React adapter |
+| `examples/reactive-proxy` | Nginx-like route / upstream / health / policy decisions as graph state |
+| `examples/ai-memory-correctness` | AI memory recall, prompt derivation, retention, rollback, and inspection snapshots |
+| `examples/server-graph-transfer` | Server-side graph state encoded as JSON and restored into a compatible client graph |
+
+The server graph transfer example is the first snapshot-shaped validation:
+
+```text
+server graph
+  -> JSON-safe payload
+  -> compatible client graph
+  -> restored writable signals
+  -> recomputed computed values
+```
+
+It does not snapshot components, DOM state, hook state, or server component payloads.
+
+---
+
+## Snapshot Direction
+
+`@signal-kernel/snapshot` is currently in RFC and example-validation stage.
+
+The intended responsibility is graph state transfer:
+
+```text
+capture explicit graph state
+  -> encode
+  -> decode
+  -> restore into a compatible graph
+  -> recompute derived state
+```
+
+Snapshot is not intended to be a renderer hydration layer. Future SSR or framework integrations should build on top of snapshot rather than making snapshot depend on React, Vue, Next.js, Nuxt, or server component semantics.
+
+See:
+
+- [`docs/rfc-snapshot-package.md`](./docs/rfc-snapshot-package.md)
+- [`docs/rfc-server-graph-transfer-example.md`](./docs/rfc-server-graph-transfer-example.md)
+
+---
+
 ## Roadmap
 
 Near-term focus:
 
 - stabilize `core` and `async-runtime`
-- add a snapshot package for graph capture, restore, and transfer
-- support JSON and MessagePack snapshot encoding first
+- implement the first `@signal-kernel/snapshot` package around explicit graph capture, JSON-safe encoding, compatible restore, and computed recomputation
+- use `examples/server-graph-transfer` as the first validation path for signal capture / restore
+- explore JSON and MessagePack snapshot encoding after the first document shape is stable
 - expand examples and documentation
 
 Longer-term exploration:
 
-- SSR / hydration integration built on top of snapshot
+- SSR / framework integration built on top of snapshot without making snapshot own component hydration
 - devtools / graph inspection
 - additional runtime helpers for broader async scenarios
 - potential FlatBuffers snapshot support
@@ -367,6 +419,8 @@ Design records:
 - [`docs/rfc-async-runtime.md`](./docs/rfc-async-runtime.md) records the adopted async-runtime boundary.
 - [`docs/rfc-react-adapter.md`](./docs/rfc-react-adapter.md) describes the React adapter design.
 - [`docs/rfc-vue-adapter.md`](./docs/rfc-vue-adapter.md) describes the Vue adapter design.
+- [`docs/rfc-snapshot-package.md`](./docs/rfc-snapshot-package.md) defines the planned snapshot package boundary.
+- [`docs/rfc-server-graph-transfer-example.md`](./docs/rfc-server-graph-transfer-example.md) defines the server graph transfer validation example.
 
 The most important rule is:
 
