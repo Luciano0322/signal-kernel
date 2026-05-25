@@ -60,10 +60,7 @@ const entitlement = computed(() =>
   plan.get() === "pro" ? "priority" : "standard",
 );
 
-const source = createSnapshotScope({
-  graphId: "profile-graph",
-  graphVersion: "0.1.0",
-});
+const source = createSnapshotScope();
 
 source.signal("userId", userId);
 source.signal("plan", plan);
@@ -83,10 +80,7 @@ const targetEntitlement = computed(() =>
   targetPlan.get() === "pro" ? "priority" : "standard",
 );
 
-const target = createSnapshotScope({
-  graphId: "profile-graph",
-  graphVersion: "0.1.0",
-});
+const target = createSnapshotScope();
 
 target.signal("userId", targetUserId);
 target.signal("plan", targetPlan);
@@ -96,6 +90,19 @@ restoreSnapshot(target, snapshot);
 
 targetEntitlement.get(); // "priority"
 ```
+
+`createSnapshotScope()` works without options. It uses a stable default graph identity so simple local transfer, examples, and SSR handoff experiments do not require users to invent a graph id up front.
+
+For production systems with multiple graph contracts, persisted snapshots, or versioned restore rules, pass an explicit `graphId` and `graphVersion`:
+
+```ts
+const scope = createSnapshotScope({
+  graphId: "profile-graph",
+  graphVersion: "0.1.0",
+});
+```
+
+Snapshot documents are immutable transfer artifacts. The package does not store, deduplicate, migrate, or overwrite snapshots. `graphVersion` only gates restore compatibility between a snapshot document and the target graph scope.
 
 ---
 
@@ -155,4 +162,3 @@ Snapshot does not capture:
 * functions or closures
 
 Snapshot owns graph state transfer. Framework adapters or future SSR helpers may consume snapshot documents, but snapshot itself stays renderer-independent.
-

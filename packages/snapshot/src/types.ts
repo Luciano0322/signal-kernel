@@ -1,4 +1,6 @@
 export const SNAPSHOT_SCHEMA = "signal-kernel.snapshot.v1";
+export const DEFAULT_SNAPSHOT_GRAPH_ID = "default";
+export const DEFAULT_SNAPSHOT_GRAPH_VERSION = "0.0.0";
 
 export type JsonPrimitive = string | number | boolean | null;
 
@@ -66,8 +68,8 @@ export type StreamSnapshotOptions<T> = SnapshotNodeOptions<T> & {
 };
 
 export type SnapshotScopeOptions = {
-  graphId: string;
-  graphVersion: string;
+  graphId?: string;
+  graphVersion?: string;
   instanceId?: string;
   now?: () => number;
 };

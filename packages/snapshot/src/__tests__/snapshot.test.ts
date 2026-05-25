@@ -7,6 +7,8 @@ import {
   diffSnapshots,
   encodeJsonSnapshot,
   restoreSnapshot,
+  type SnapshotDocument,
+  type SnapshotNode,
 } from "../index";
 
 function createProfileGraph() {
@@ -48,6 +50,30 @@ function registerProfileGraph(graph: ReturnType<typeof createProfileGraph>) {
 }
 
 describe("snapshot package", () => {
+  it("creates a compatible default scope when options are omitted", () => {
+    const sourceValue = signal("server");
+    const targetValue = signal("client");
+    const source = createSnapshotScope({ now: () => 123 });
+    const target = createSnapshotScope();
+
+    source.signal("value", sourceValue);
+    target.signal("value", targetValue);
+
+    const snapshot = captureSnapshot(source);
+    const report = restoreSnapshot(target, snapshot);
+
+    expect(snapshot.graph).toEqual({
+      id: "default",
+      version: "0.0.0",
+    });
+    expect(report).toEqual({
+      restored: ["value"],
+      skipped: [],
+      warnings: [],
+    });
+    expect(targetValue.get()).toBe("server");
+  });
+
   it("captures writable signals as a JSON-safe snapshot document", () => {
     const graph = createProfileGraph();
     graph.signals.userId.set("luciano");
@@ -239,10 +265,16 @@ describe("snapshot package", () => {
   it("rejects incompatible node kinds in strict restore mode", () => {
     const graph = createProfileGraph();
     const snapshot = captureSnapshot(registerProfileGraph(graph));
-    const mutated = {
+    const mutated: SnapshotDocument = {
       ...snapshot,
-      nodes: snapshot.nodes.map((node) =>
-        node.id === "userId" ? { ...node, kind: "computed" as const } : node,
+      nodes: snapshot.nodes.map((node): SnapshotNode =>
+        node.id === "userId"
+          ? {
+              id: node.id,
+              kind: "computed",
+              restore: "recompute",
+            }
+          : node,
       ),
     };
 

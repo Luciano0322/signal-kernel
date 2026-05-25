@@ -19,6 +19,8 @@ export {
   isJsonValue,
 } from "./json.js";
 export {
+  DEFAULT_SNAPSHOT_GRAPH_ID,
+  DEFAULT_SNAPSHOT_GRAPH_VERSION,
   SNAPSHOT_SCHEMA,
   type ComputedSnapshotNode,
   type ComputedSnapshotOptions,

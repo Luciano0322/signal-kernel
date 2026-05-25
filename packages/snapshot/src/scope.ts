@@ -9,6 +9,10 @@ import type {
   StreamSnapshotOptions,
   WritableSignal,
 } from "./types";
+import {
+  DEFAULT_SNAPSHOT_GRAPH_ID,
+  DEFAULT_SNAPSHOT_GRAPH_VERSION,
+} from "./types";
 
 export type SignalRegistration<T = unknown> = {
   id: string;
@@ -51,9 +55,10 @@ export class SnapshotScope {
   readonly now: () => number;
   private readonly registrations = new Map<string, SnapshotRegistration>();
 
-  constructor(options: SnapshotScopeOptions) {
-    this.graphId = options.graphId;
-    this.graphVersion = options.graphVersion;
+  constructor(options: SnapshotScopeOptions = {}) {
+    this.graphId = options.graphId ?? DEFAULT_SNAPSHOT_GRAPH_ID;
+    this.graphVersion =
+      options.graphVersion ?? DEFAULT_SNAPSHOT_GRAPH_VERSION;
     this.instanceId = options.instanceId;
     this.now = options.now ?? (() => Date.now());
   }
@@ -131,6 +136,6 @@ export class SnapshotScope {
   }
 }
 
-export function createSnapshotScope(options: SnapshotScopeOptions) {
+export function createSnapshotScope(options: SnapshotScopeOptions = {}) {
   return new SnapshotScope(options);
 }

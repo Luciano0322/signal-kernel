@@ -25,7 +25,10 @@ Do not describe it as:
 Important boundaries:
 
 * Register nodes explicitly with `createSnapshotScope()`.
+* `createSnapshotScope()` may be called without options for simple single-graph transfer.
+* Use explicit `graphId` and `graphVersion` when snapshots need durable compatibility checks across multiple graph contracts.
 * Restore only into compatible graph ids and versions.
+* Snapshot documents are immutable transfer artifacts; the package does not store, deduplicate, migrate, or overwrite them.
 * Writable signals are the primary restore target.
 * Computed values are inspection data and should recompute after restore.
 * Resource and stream nodes are inspect-only in the first implementation.
@@ -45,4 +48,3 @@ Snapshot hydrates React components.
 Snapshot serializes UI state.
 Snapshot resumes live async operations.
 ```
-
