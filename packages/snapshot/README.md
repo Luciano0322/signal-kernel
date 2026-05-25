@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="https://github.com/Luciano0322/signal-kernel/blob/main/assets/brands/snapshot-icon.svg" alt="adapter react logo" width="120" />
+</p>
 <h1 align="center">@signal-kernel/snapshot</h1>
 
 <p align="center">
