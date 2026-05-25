@@ -2,7 +2,7 @@
 
 ## 0. Status
 
-**Status:** Draft
+**Status:** Draft / initial package implementation
 **Target:** `packages/snapshot`
 **Primary Goal:** Define a framework-neutral snapshot boundary for capturing, encoding, comparing, and restoring compatible `signal-kernel` graph state.
 **Non-goal:** Build a React hydration layer, Vue hydration layer, SSR framework integration, persistence database, event-sourcing system, or general-purpose time-travel debugger.
@@ -170,10 +170,7 @@ Snapshot should not try to discover every graph node automatically in v1.
 The current core primitives do not expose stable IDs, package names, graph schema names, or node ownership. Therefore v1 should use explicit registration:
 
 ```ts
-const scope = createSnapshotScope({
-  graphId: "commerce-graph",
-  graphVersion: "1.0.0",
-})
+const scope = createSnapshotScope()
 
 scope.signal("accountId", accountId)
 scope.signal("cart", cart)
@@ -184,9 +181,20 @@ scope.stream("assistantStream", assistantStream)
 
 This keeps the package honest: an application graph decides what is snapshot-worthy.
 
-### 5.2.1 Validation Examples Before Package Extraction
+Scope identity should not be an entry barrier. `createSnapshotScope()` should work without options and use a stable default graph identity for simple single-graph transfer, examples, tests, and SSR handoff experiments.
 
-Before `@signal-kernel/snapshot` exists, examples may use local transfer payload helpers to validate package requirements.
+Explicit graph identity is still useful when an application has multiple graph contracts, persisted snapshots, or versioned restore compatibility:
+
+```ts
+const scope = createSnapshotScope({
+  graphId: "commerce-graph",
+  graphVersion: "1.0.0",
+})
+```
+
+### 5.2.1 Validation Examples Before Stable Package APIs
+
+Before `@signal-kernel/snapshot` has stable APIs, examples may use local transfer payload helpers to validate package requirements.
 
 Those helpers must be clearly documented as example-local and unstable:
 
@@ -236,6 +244,10 @@ snapshot graphId == target graphId
 snapshot graphVersion is compatible with target graphVersion
 snapshot node IDs exist or are explicitly ignored by policy
 ```
+
+When a scope is created without options, it should use the default graph identity. This keeps source and target no-option scopes compatible while still preserving strict restore checks.
+
+Snapshot documents are immutable transfer artifacts. The snapshot package should not store, deduplicate, migrate, or overwrite snapshots. Version handling should only gate restore compatibility between a document and the target graph scope.
 
 Strict restore should fail when compatibility is unclear.
 
@@ -442,7 +454,18 @@ packages/snapshot/
 
 ### 9.3 Initial Dependencies
 
-The snapshot package may depend on:
+The initial snapshot package should avoid runtime dependencies when possible.
+
+It can use structural types for signal-like, resource-like, and stream-like values:
+
+```txt
+{ get, peek, set }
+[value, meta]
+```
+
+This keeps snapshot lower than core, async-runtime, and framework adapters.
+
+Future versions may depend on:
 
 * `@signal-kernel/core`
 * `@signal-kernel/async-runtime` types if async snapshot adapters are included
@@ -589,6 +612,12 @@ export type SnapshotError = {
 ```ts
 import { createSnapshotScope } from "@signal-kernel/snapshot";
 
+const scope = createSnapshotScope();
+```
+
+For durable compatibility checks across named graph contracts:
+
+```ts
 const scope = createSnapshotScope({
   graphId: "ai-memory-graph",
   graphVersion: "0.1.0",
@@ -873,15 +902,16 @@ DevOps snapshots should capture graph state and decision metadata, but not socke
 V1 tests should cover:
 
 1. Capturing registered signal nodes.
-2. Restoring registered signal nodes into a compatible graph.
-3. Rejecting incompatible graph IDs in strict mode.
-4. Rejecting incompatible node kinds in strict mode.
-5. Capturing computed values for inspection while restoring by recomputation.
-6. Capturing resource status/value/error in inspect-only mode.
-7. Capturing stream value/stableValue/status in inspect-only mode.
-8. JSON encode/decode round trip.
-9. Redaction omission.
-10. Snapshot diff for changed signal values.
+2. Creating a default scope without options.
+3. Restoring registered signal nodes into a compatible graph.
+4. Rejecting incompatible graph IDs in strict mode.
+5. Rejecting incompatible node kinds in strict mode.
+6. Capturing computed values for inspection while restoring by recomputation.
+7. Capturing resource status/value/error in inspect-only mode.
+8. Capturing stream value/stableValue/status in inspect-only mode.
+9. JSON encode/decode round trip.
+10. Redaction omission.
+11. Snapshot diff for changed signal values.
 
 Tests should not mount React or Vue components.
 

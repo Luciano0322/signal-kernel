@@ -4,6 +4,7 @@
     { "path": "./packages/core" },
     { "path": "./packages/async-runtime" },
     { "path": "./packages/react" },
-    { "path": "./packages/vue" }
+    { "path": "./packages/vue" },
+    { "path": "./packages/snapshot" }
   ]
 }
