@@ -2,18 +2,18 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { createProfileGraph } from "../shared/createProfileGraph";
 import {
-  decodeTransferPayload,
-  restoreProfileGraphPayload,
-  type ServerGraphTransferPayload,
-} from "../shared/transferPayload";
+  decodeProfileGraphSnapshot,
+  restoreProfileGraphSnapshot,
+} from "../shared/profileSnapshot";
+import type { SnapshotDocument } from "@signal-kernel/snapshot";
 
-function readTransferPayload(): ServerGraphTransferPayload | undefined {
-  const element = document.getElementById("__SIGNAL_KERNEL_GRAPH__");
+function readSnapshotDocument(): SnapshotDocument | undefined {
+  const element = document.getElementById("__SIGNAL_KERNEL_SNAPSHOT__");
   const text = element?.textContent?.trim();
 
   if (!text) return undefined;
 
-  return decodeTransferPayload(text);
+  return decodeProfileGraphSnapshot(text);
 }
 
 const root = document.getElementById("root");
@@ -23,10 +23,10 @@ if (!root) {
 }
 
 const graph = createProfileGraph();
-const payload = readTransferPayload();
+const snapshot = readSnapshotDocument();
 
-if (payload) {
-  restoreProfileGraphPayload(graph, payload);
+if (snapshot) {
+  restoreProfileGraphSnapshot(graph, snapshot);
 }
 
-createRoot(root).render(<App graph={graph} payload={payload} />);
+createRoot(root).render(<App graph={graph} snapshot={snapshot} />);

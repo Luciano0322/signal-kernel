@@ -1,8 +1,8 @@
 import { createProfileGraph, isPlan, type Plan } from "../shared/createProfileGraph";
 import {
-  captureProfileGraphPayload,
-  encodeTransferPayload,
-} from "../shared/transferPayload";
+  captureProfileGraphSnapshot,
+  encodeProfileGraphSnapshot,
+} from "../shared/profileSnapshot";
 
 type RenderHtmlOptions = {
   requestUrl: URL;
@@ -37,8 +37,8 @@ export function renderHtml({ requestUrl }: RenderHtmlOptions) {
   const graph = createProfileGraph();
   graph.actions.setProfile(createServerProfile(requestUrl));
 
-  const payload = captureProfileGraphPayload(graph);
-  const payloadJson = escapeScriptJson(encodeTransferPayload(payload));
+  const snapshot = captureProfileGraphSnapshot(graph);
+  const snapshotJson = escapeScriptJson(encodeProfileGraphSnapshot(snapshot));
 
   return `<!doctype html>
 <html lang="en">
@@ -55,7 +55,7 @@ export function renderHtml({ requestUrl }: RenderHtmlOptions) {
         <p>${graph.computed.summary.get()}</p>
       </main>
     </div>
-    <script id="__SIGNAL_KERNEL_GRAPH__" type="application/json">${payloadJson}</script>
+    <script id="__SIGNAL_KERNEL_SNAPSHOT__" type="application/json">${snapshotJson}</script>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
 </html>`;

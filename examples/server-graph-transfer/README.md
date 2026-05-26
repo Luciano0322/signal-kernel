@@ -1,13 +1,17 @@
 # Server Graph Transfer Example
 
-This example proves the smallest snapshot-shaped flow before
-`@signal-kernel/snapshot` exists:
+This example demonstrates the smallest `@signal-kernel/snapshot` transfer
+flow:
 
 ```txt
 server graph
-  -> JSON-safe graph payload
+  -> createSnapshotScope
+  -> captureSnapshot
+  -> encodeJsonSnapshot
+  -> HTML embeds snapshot JSON
+  -> client decodeJsonSnapshot
   -> client compatible graph
-  -> restored writable signals
+  -> restoreSnapshot
   -> recomputed computed values
   -> renderer reads graph
 ```
@@ -50,19 +54,21 @@ pnpm -F @signal-kernel/example-server-graph-transfer build
 
 ## Boundary
 
-This example owns an intentionally local payload shape:
+This example uses the published snapshot document shape:
 
 ```txt
-signal-kernel.example.server-graph-transfer.v0
+signal-kernel.snapshot.v1
 ```
 
-That payload is not the final snapshot package API. It only validates:
+It validates:
 
 * graph identity
 * graph version
 * JSON-safe writable signal values
 * compatible graph restore
 * computed recomputation after restore
+* computed nodes as inspection data, not source state
+* domain value validation through node serializers
 
-Future work should replace the local helpers with `@signal-kernel/snapshot`
-once that package exists.
+It still does not snapshot components, DOM state, hook state, effects,
+promises, or server component data.

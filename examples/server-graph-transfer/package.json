@@ -12,6 +12,7 @@
   "dependencies": {
     "@signal-kernel/core": "workspace:*",
     "@signal-kernel/react": "workspace:*",
+    "@signal-kernel/snapshot": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

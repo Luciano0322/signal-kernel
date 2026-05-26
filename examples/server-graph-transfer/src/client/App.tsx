@@ -1,14 +1,14 @@
 import { useComputedValue, useSignalValue } from "@signal-kernel/react";
 import type { ProfileGraph } from "../shared/createProfileGraph";
-import type { ServerGraphTransferPayload } from "../shared/transferPayload";
+import type { SnapshotDocument } from "@signal-kernel/snapshot";
 import "./styles.css";
 
 type AppProps = {
   graph: ProfileGraph;
-  payload: ServerGraphTransferPayload | undefined;
+  snapshot: SnapshotDocument | undefined;
 };
 
-export function App({ graph, payload }: AppProps) {
+export function App({ graph, snapshot }: AppProps) {
   const userId = useSignalValue(graph.signals.userId);
   const plan = useSignalValue(graph.signals.plan);
   const usage = useSignalValue(graph.signals.usage);
@@ -80,15 +80,16 @@ export function App({ graph, payload }: AppProps) {
           <p className="panel-note">{summary}</p>
         </article>
 
-        <article className="panel payload-panel">
+        <article className="panel snapshot-panel">
           <div className="panel-heading">
-            <p className="eyebrow">Transfer Payload</p>
-            <h2>JSON-safe graph state</h2>
+            <p className="eyebrow">Snapshot Document</p>
+            <h2>JSON-safe graph transfer</h2>
           </div>
-          <pre>{JSON.stringify(payload, null, 2)}</pre>
+          <pre>{JSON.stringify(snapshot, null, 2)}</pre>
           <p className="panel-note">
-            This payload does not include components, DOM state, hook state,
-            effects, promises, or server component data.
+            This snapshot does not include components, DOM state, hook state,
+            effects, promises, or server component data. Computed nodes are
+            inspection data and recompute from restored signals.
           </p>
         </article>
       </section>

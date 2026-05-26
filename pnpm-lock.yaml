@@ -263,6 +263,9 @@ importers:
       '@signal-kernel/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@signal-kernel/snapshot':
+        specifier: workspace:*
+        version: link:../../packages/snapshot
       react:
         specifier: ^18.3.1
         version: 18.3.1
