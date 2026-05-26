@@ -103,21 +103,33 @@ UI frameworks may consume async resources through adapters, but the async runtim
 
 ### 4. Snapshot is a transfer boundary, not a renderer
 
-Snapshot-related packages should focus on capturing, encoding, restoring, and transferring reactive graph state.
+`@signal-kernel/snapshot` is a published framework-neutral graph transfer package.
+
+Snapshot-related APIs should focus on capturing, encoding, diffing, restoring, and transferring explicit reactive graph state.
 
 The snapshot layer should not become a UI hydration framework by itself.
 
 Snapshot responsibilities may include:
 
+- explicit graph node registration
 - capturing serializable graph state
-- restoring graph state
-- supporting multiple encodings such as JSON or MessagePack
+- JSON-safe encode/decode
+- restoring compatible writable signal state
+- recomputing derived state after restore
+- diffing snapshot documents
+- redaction and explicit serialization policy
+- inspecting async/resource/stream state without claiming live resume
+- supporting future encodings such as MessagePack
 - preserving enough metadata for future SSR, server restore, or cross-runtime transfer
 - keeping encoding concerns explicit and modular
+
+Snapshot V1 depends on snapshot-compatible structural protocols such as `get`, `peek`, and `set`; it should not depend on core internals by default.
 
 Snapshot should not import React, Vue, Solid, Svelte, or renderer-specific hydration logic.
 
 SSR integration may use snapshot, but snapshot should remain lower-level than SSR framework adapters.
+
+Snapshot should not own storage, deduplication, migration, overwrite policy, event sourcing, durable replay, or live async/stream continuation.
 
 ---
 
@@ -193,8 +205,13 @@ Do not use for:
 
 Use for:
 
-- graph snapshot capture
-- graph snapshot restore
+- explicit graph snapshot capture
+- JSON-safe graph state transfer
+- compatible writable signal restore
+- computed inspection with recomputation
+- snapshot document diff
+- redaction and custom serialization
+- inspect-only async/resource/stream state capture
 - serialization boundary
 - encoding abstraction
 - JSON support
@@ -209,6 +226,13 @@ Do not use for:
 - Next.js-specific APIs
 - Vue/Nuxt-specific APIs
 - rendering lifecycle management
+- persistent storage policy
+- snapshot deduplication
+- graph migration policy
+- event sourcing
+- live async operation resume
+- live stream continuation
+- promise, abort controller, timer, socket, or closure serialization
 
 ---
 
@@ -242,6 +266,7 @@ Use examples to demonstrate:
 - race-condition-safe resources
 - streaming resource updates
 - snapshot restore
+- snapshot transfer and diff
 - React adapter usage
 - Vue adapter usage
 - realtime data graph behavior
@@ -287,6 +312,9 @@ Important behaviors to test include:
 - last-write-wins behavior
 - stream update behavior
 - snapshot capture and restore behavior
+- snapshot graph identity and version compatibility
+- snapshot redaction behavior
+- inspect-only async/stream snapshot behavior
 
 Avoid tests that rely on a specific UI framework unless the package being tested is a framework adapter.
 
@@ -322,6 +350,8 @@ Avoid these mistakes:
 - coupling async resources to component mount or unmount by default
 - hiding cancellation inside UI adapters
 - making snapshot depend on SSR framework behavior
+- treating snapshot as persistent storage, event sourcing, or live stream resume
+- capturing promises, abort controllers, timers, sockets, functions, or closures as snapshot state
 - using examples as justification to pollute core
 - describing the project as only a state management library
 - describing the async runtime as only a data fetching library
