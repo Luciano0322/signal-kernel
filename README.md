@@ -7,6 +7,7 @@
   <a href="https://www.npmjs.com/package/@signal-kernel/async-runtime"><img alt="@signal-kernel/async-runtime" src="https://img.shields.io/npm/v/@signal-kernel/async-runtime?label=async-runtime"></a>
   <a href="https://www.npmjs.com/package/@signal-kernel/react"><img alt="@signal-kernel/react" src="https://img.shields.io/npm/v/@signal-kernel/react?label=react"></a>
   <a href="https://www.npmjs.com/package/@signal-kernel/vue"><img alt="@signal-kernel/vue" src="https://img.shields.io/npm/v/@signal-kernel/vue?label=vue"></a>
+  <a href="https://www.npmjs.com/package/@signal-kernel/snapshot"><img alt="@signal-kernel/snapshot" src="https://img.shields.io/npm/v/@signal-kernel/snapshot?label=snapshot"></a>
 </p>
 
 <h1 align="center">signal-kernel</h1>
@@ -44,20 +45,19 @@ Rendering is only one possible side effect of the graph.
 This project is not a framework.
 It is the reactive kernel that frameworks and adapters can build on top of.
 
-> ⚠️ signal-kernel is currently in v0.x. APIs may continue to evolve before v1.0.
+> Note: signal-kernel is currently in v0.x. APIs may continue to evolve before v1.0.
 
 ---
 
 ## Current Status
 
-Today, the project includes four published packages:
+Today, the project includes five published packages:
 
 * **`@signal-kernel/core`** - the synchronous reactive kernel
 * **`@signal-kernel/async-runtime`** - async/runtime primitives built on top of core
 * **`@signal-kernel/react`** - a thin React lifecycle adapter for reading existing graph values
 * **`@signal-kernel/vue`** - a thin Vue scope adapter for reading existing graph values
-
-The workspace also contains an early **`@signal-kernel/snapshot`** package. It currently focuses on explicit graph capture, JSON-safe encoding, compatible signal restore, computed recomputation, diff, redaction, and inspect-only async/stream nodes.
+* **`@signal-kernel/snapshot`** - graph state capture, JSON-safe transfer, compatible restore, diff, and redaction
 
 Framework adapters follow the same **thin-wrapper approach**: preserve runtime semantics instead of hiding them behind heavy framework-specific abstractions.
 
@@ -71,7 +71,7 @@ Framework adapters follow the same **thin-wrapper approach**: preserve runtime s
 | **@signal-kernel/async-runtime** | [npm](https://www.npmjs.com/package/@signal-kernel/async-runtime) | Async runtime primitives: `fromPromise`, `asyncSignal`, `createResource`, `createStreamResource` |
 | **@signal-kernel/react**         | [npm](https://www.npmjs.com/package/@signal-kernel/react)         | Thin React adapter for reading existing signal-kernel graph values in React                      |
 | **@signal-kernel/vue**           | [npm](https://www.npmjs.com/package/@signal-kernel/vue)           | Thin Vue adapter for exposing existing signal-kernel graph values as readonly Vue refs           |
-| **@signal-kernel/snapshot**      | workspace / early package                                         | Graph state capture, JSON-safe transfer, compatible restore, diff, and redaction                 |
+| **@signal-kernel/snapshot**      | [npm](https://www.npmjs.com/package/@signal-kernel/snapshot)      | Graph state capture, JSON-safe transfer, compatible restore, diff, and redaction                 |
 
 ---
 
@@ -97,6 +97,12 @@ Vue adapter:
 pnpm add @signal-kernel/vue @signal-kernel/core @signal-kernel/async-runtime
 ```
 
+Snapshot:
+
+```bash
+pnpm add @signal-kernel/snapshot
+```
+
 `react`, `react-dom`, and `vue` are peer dependencies of their adapter packages and are expected to already exist in framework applications.
 
 ---
@@ -109,6 +115,7 @@ Use signal-kernel when you need:
 - deterministic reactive data propagation
 - derived state outside UI components
 - async state with cancellation and stale result protection
+- explicit graph snapshots for transfer, inspection, or compatible restore
 - reusable dataflow across React, Vue, server runtimes, workers, or tests
 - a thin adapter model where rendering frameworks consume the graph instead of owning it
 - business logic that should survive framework migration
@@ -269,6 +276,12 @@ flowchart TD
         O[Other renderers]
     end
 
+    subgraph SNAPSHOT["Snapshot Boundary"]
+        CAP[capture]
+        ENC[encode / decode]
+        REST[restore]
+    end
+
     subgraph EFFECTS["Side Effects"]
         UI[UI rendering]
         LOG[logging]
@@ -291,6 +304,10 @@ flowchart TD
     E --> LOG
     E --> IO
     E --> WORKER
+
+    G --> SNAPSHOT
+    SNAPSHOT --> REST
+    REST --> S
 
     G --> ADAPTERS
     ADAPTERS --> UI
@@ -325,6 +342,17 @@ flowchart TD
 | `@signal-kernel/react` | `useSignalValue`, `useComputedValue`, `useReactive`, `useResource`, `useStreamResource` | Reads existing graph values from React components  |
 | `@signal-kernel/vue`   | `useSignalValue`, `useComputedValue`, `useReactive`, `useResource`, `useStreamResource` | Exposes existing graph values as readonly Vue refs |
 
+### Snapshot
+
+| API                   | Description                                                            |
+| --------------------- | ---------------------------------------------------------------------- |
+| `createSnapshotScope` | Register explicit graph nodes for capture and restore                  |
+| `captureSnapshot`     | Capture a JSON-safe snapshot document from a registered graph scope     |
+| `restoreSnapshot`     | Restore compatible writable signal nodes into a target graph scope      |
+| `encodeJsonSnapshot`  | Encode a snapshot document for transfer                                |
+| `decodeJsonSnapshot`  | Decode and validate a JSON snapshot document                            |
+| `diffSnapshots`       | Compare two snapshot documents for added, removed, and changed entries |
+
 ---
 
 ## Current Examples
@@ -357,9 +385,9 @@ It does not snapshot components, DOM state, hook state, or server component payl
 
 ## Snapshot Direction
 
-`@signal-kernel/snapshot` is currently an early workspace package guided by RFCs and validation examples.
+`@signal-kernel/snapshot` is a published package for framework-neutral graph state transfer.
 
-The intended responsibility is graph state transfer:
+Its current responsibility is explicit graph state transfer:
 
 ```text
 capture explicit graph state
@@ -369,7 +397,9 @@ capture explicit graph state
   -> recompute derived state
 ```
 
-Snapshot is not intended to be a renderer hydration layer. Future SSR or framework integrations should build on top of snapshot rather than making snapshot depend on React, Vue, Next.js, Nuxt, or server component semantics.
+It supports writable signal capture/restore, computed inspection with recomputation, JSON encode/decode, diff, redaction, and inspect-only async/stream nodes.
+
+Snapshot is not a renderer hydration layer. Future SSR or framework integrations should build on top of snapshot rather than making snapshot depend on React, Vue, Next.js, Nuxt, or server component semantics.
 
 See:
 
@@ -383,9 +413,9 @@ See:
 Near-term focus:
 
 - stabilize `core` and `async-runtime`
-- harden the first `@signal-kernel/snapshot` package around explicit graph capture, JSON-safe encoding, compatible restore, and computed recomputation
-- use `examples/server-graph-transfer` as the first validation path for signal capture / restore
-- explore JSON and MessagePack snapshot encoding after the first document shape is stable
+- harden `@signal-kernel/snapshot` around explicit graph capture, JSON-safe encoding, compatible restore, and computed recomputation
+- migrate more snapshot-shaped examples toward the published snapshot APIs where useful
+- explore a higher-level snapshot contract helper after the explicit V1 boundary stays stable
 - expand examples and documentation
 
 Longer-term exploration:
@@ -393,6 +423,7 @@ Longer-term exploration:
 - SSR / framework integration built on top of snapshot without making snapshot own component hydration
 - devtools / graph inspection
 - additional runtime helpers for broader async scenarios
+- MessagePack or other modular snapshot encodings
 - potential FlatBuffers snapshot support
 
 ---
