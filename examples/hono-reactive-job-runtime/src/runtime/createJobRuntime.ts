@@ -1,5 +1,6 @@
 import { createStreamResource } from "@signal-kernel/async-runtime";
 import { batch, computed, signal } from "@signal-kernel/core";
+import { defaultAnalyzeDocument } from "../mock/analyzeDocument";
 import type {
   JobAnalyzeStream,
   JobExecutionChunk,
@@ -54,26 +55,9 @@ function toJobStatus(enabled: boolean, streamStatus: string): JobStatus {
   return "idle";
 }
 
-const defaultAnalyze: JobAnalyzeStream = (source, ctx) => {
-  const label = source.content.trim().slice(0, 80) || "empty document";
-
-  ctx.emit({
-    progress: 25,
-    currentStep: "parse_document",
-    partialResult: `Queued analysis for ${source.content.length} characters.`,
-  });
-
-  ctx.done({
-    progress: 100,
-    currentStep: "generate_report",
-    partialResult: `Analysis complete for ${source.content.length} characters.`,
-    stableResult: `Report ready for: ${label}`,
-  });
-};
-
 export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
   const id = options.id ?? createJobId();
-  const analyze = options.analyze ?? defaultAnalyze;
+  const analyze = options.analyze ?? defaultAnalyzeDocument;
   const content = signal(options.content);
   const attempt = signal(0);
   const enabled = signal(false);

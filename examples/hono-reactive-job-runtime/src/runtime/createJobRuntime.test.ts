@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { analyzeDocument, analysisSteps } from "../mock/analyzeDocument";
 import { createJobRuntime } from "./createJobRuntime";
-import type { JobAnalyzeStream } from "./jobTypes";
+import type {
+  JobAnalyzeStream,
+  JobExecutionChunk,
+  JobExecutionState,
+} from "./jobTypes";
 
 function createDeferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -19,13 +24,79 @@ function createDeferred<T = void>() {
 }
 
 async function flushMicrotasks() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let i = 0; i < 12; i += 1) {
+    await Promise.resolve();
+  }
 }
 
 describe("createJobRuntime", () => {
+  it("models document analysis as four progressive stream chunks", async () => {
+    const chunks: JobExecutionChunk[] = [];
+    let finalValue: JobExecutionState | undefined;
+
+    await analyzeDocument(
+      {
+        attempt: 1,
+        content: "Runtime notes",
+      },
+      {
+        emit: (chunk) => chunks.push(chunk),
+        set: (value) => {
+          finalValue = value;
+        },
+        done: (value) => {
+          finalValue = value;
+        },
+        isCancelled: () => false,
+      },
+      {
+        wait: async () => undefined,
+      },
+    );
+
+    expect(chunks).toHaveLength(analysisSteps.length);
+    expect(chunks.map((chunk) => chunk.currentStep)).toEqual([
+      "parse_document",
+      "extract_keywords",
+      "summarize_sections",
+      "generate_report",
+    ]);
+    expect(chunks.map((chunk) => chunk.progress)).toEqual([20, 45, 70, 90]);
+    expect(finalValue).toMatchObject({
+      progress: 100,
+      currentStep: "generate_report",
+      stableResult: expect.stringContaining("Runtime notes"),
+    });
+  });
+
+  it("stops the mock analysis stream when the context is cancelled", async () => {
+    const chunks: JobExecutionChunk[] = [];
+    let finalValue: JobExecutionState | undefined;
+
+    await analyzeDocument(
+      {
+        attempt: 0,
+        content: "Cancelled notes",
+      },
+      {
+        emit: (chunk) => chunks.push(chunk),
+        set: (value) => {
+          finalValue = value;
+        },
+        done: (value) => {
+          finalValue = value;
+        },
+        isCancelled: () => chunks.length > 0,
+      },
+      {
+        wait: async () => undefined,
+      },
+    );
+
+    expect(chunks).toHaveLength(1);
+    expect(finalValue).toBeUndefined();
+  });
+
   it("starts with an idle public state before start is called", async () => {
     const runtime = createJobRuntime({
       id: "job_test",
@@ -52,9 +123,15 @@ describe("createJobRuntime", () => {
   });
 
   it("derives success state from the stream value and metadata", async () => {
+    const analyze: JobAnalyzeStream = (source, ctx) =>
+      analyzeDocument(source, ctx, {
+        wait: async () => undefined,
+      });
+
     const runtime = createJobRuntime({
       id: "job_success",
       content: "A short document",
+      analyze,
     });
 
     runtime.start();
@@ -65,8 +142,8 @@ describe("createJobRuntime", () => {
       status: "success",
       progress: 100,
       currentStep: "generate_report",
-      stableResult: "Report ready for: A short document",
-      visibleResult: "Report ready for: A short document",
+      stableResult: expect.stringContaining("A short document"),
+      visibleResult: expect.stringContaining("A short document"),
       error: null,
       canCancel: false,
       canRetry: false,
