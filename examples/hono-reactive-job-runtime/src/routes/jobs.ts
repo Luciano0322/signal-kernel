@@ -1,27 +1,60 @@
 import { Hono } from "hono";
+import { createJob, getJob } from "../runtime/jobRegistry";
 
 function stepNotImplemented(step: string) {
   return {
-    error: "Not implemented in Step 1",
+    error: "Not implemented yet",
     nextStep: step,
   };
 }
 
 export const jobsRoute = new Hono();
 
-jobsRoute.post("/analyze", (c) =>
-  c.json(stepNotImplemented("Create createJobRuntime() in Step 2"), 501),
-);
+function jobNotFound(id: string) {
+  return {
+    error: "Job not found",
+    id,
+  };
+}
 
-jobsRoute.get("/:id", (c) =>
-  c.json(
+jobsRoute.post("/analyze", async (c) => {
+  const body = await c.req.json().catch(() => null);
+
+  if (
+    !body ||
+    typeof body !== "object" ||
+    !("content" in body) ||
+    typeof body.content !== "string" ||
+    body.content.trim().length === 0
+  ) {
+    return c.json(
+      {
+        error: "Request body must include a non-empty content string",
+      },
+      400,
+    );
+  }
+
+  const runtime = createJob(body.content);
+  runtime.start();
+
+  return c.json(
     {
-      id: c.req.param("id"),
-      ...stepNotImplemented("Read runtime state in Step 4"),
+      jobId: runtime.id,
+      status: runtime.getState().status,
     },
-    501,
-  ),
-);
+    201,
+  );
+});
+
+jobsRoute.get("/:id", (c) => {
+  const id = c.req.param("id");
+  const runtime = getJob(id);
+
+  if (!runtime) return c.json(jobNotFound(id), 404);
+
+  return c.json(runtime.getState());
+});
 
 jobsRoute.get("/:id/events", (c) =>
   c.json(
@@ -33,25 +66,46 @@ jobsRoute.get("/:id/events", (c) =>
   ),
 );
 
-jobsRoute.post("/:id/cancel", (c) =>
-  c.json(
-    {
-      id: c.req.param("id"),
-      ...stepNotImplemented("Call runtime.cancel() in Step 4"),
-    },
-    501,
-  ),
-);
+jobsRoute.post("/:id/cancel", (c) => {
+  const id = c.req.param("id");
+  const runtime = getJob(id);
 
-jobsRoute.post("/:id/retry", (c) =>
-  c.json(
-    {
-      id: c.req.param("id"),
-      ...stepNotImplemented("Call runtime.retry() in Step 4"),
-    },
-    501,
-  ),
-);
+  if (!runtime) return c.json(jobNotFound(id), 404);
+
+  runtime.cancel();
+
+  return c.json({
+    ok: true,
+    status: runtime.getState().status,
+  });
+});
+
+jobsRoute.post("/:id/retry", (c) => {
+  const id = c.req.param("id");
+  const runtime = getJob(id);
+
+  if (!runtime) return c.json(jobNotFound(id), 404);
+
+  const state = runtime.getState();
+
+  if (!state.canRetry) {
+    return c.json(
+      {
+        ok: false,
+        error: "Job is not retryable",
+        status: state.status,
+      },
+      409,
+    );
+  }
+
+  runtime.retry();
+
+  return c.json({
+    ok: true,
+    status: runtime.getState().status,
+  });
+});
 
 jobsRoute.get("/:id/snapshot", (c) =>
   c.json(
