@@ -236,6 +236,51 @@ describe("createJobRuntime", () => {
     runtime.dispose();
   });
 
+  it("notifies subscribers when public state changes", async () => {
+    const release = createDeferred();
+    const states: string[] = [];
+    const analyze: JobAnalyzeStream = async (_source, ctx) => {
+      ctx.emit({
+        progress: 35,
+        currentStep: "parse_document",
+        partialResult: "Subscriber-visible progress.",
+      });
+
+      await release.promise;
+
+      if (ctx.isCancelled()) return;
+
+      ctx.done({
+        progress: 100,
+        currentStep: "generate_report",
+        partialResult: "Subscriber-visible final.",
+        stableResult: "Subscriber-visible final.",
+      });
+    };
+
+    const runtime = createJobRuntime({
+      id: "job_subscribe",
+      content: "Observable content",
+      analyze,
+    });
+
+    const unsubscribe = runtime.subscribe((state) => {
+      states.push(`${state.status}:${state.progress}`);
+    });
+
+    runtime.start();
+    await flushMicrotasks();
+    release.resolve();
+    await flushMicrotasks();
+
+    expect(states).toContain("idle:0");
+    expect(states).toContain("running:35");
+    expect(states).toContain("success:100");
+
+    unsubscribe();
+    runtime.dispose();
+  });
+
   it("surfaces stream errors without manually mutating derived flags", async () => {
     const analyze: JobAnalyzeStream = (_source, ctx) => {
       ctx.emit({

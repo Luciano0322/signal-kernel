@@ -1,5 +1,5 @@
 import { createStreamResource } from "@signal-kernel/async-runtime";
-import { batch, computed, signal } from "@signal-kernel/core";
+import { batch, computed, createEffect, signal } from "@signal-kernel/core";
 import { defaultAnalyzeDocument } from "../mock/analyzeDocument";
 import type {
   JobAnalyzeStream,
@@ -61,6 +61,7 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
   const content = signal(options.content);
   const attempt = signal(0);
   const enabled = signal(false);
+  const listeners = new Set<(state: JobStateView) => void>();
 
   let disposed = false;
 
@@ -146,6 +147,14 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
     };
   }
 
+  const stopNotify = createEffect(() => {
+    const state = getState();
+
+    for (const listener of listeners) {
+      listener(state);
+    }
+  });
+
   function start() {
     if (disposed || enabled.peek()) return;
     enabled.set(true);
@@ -165,11 +174,27 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
     });
   }
 
+  function subscribe(listener: (state: JobStateView) => void) {
+    if (disposed) {
+      listener(getState());
+      return () => undefined;
+    }
+
+    listener(getState());
+    listeners.add(listener);
+
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+
   function dispose() {
     if (disposed) return;
 
     disposed = true;
     executionMeta.cancel("job-disposed");
+    stopNotify();
+    listeners.clear();
   }
 
   return {
@@ -178,6 +203,7 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
     cancel,
     retry,
     getState,
+    subscribe,
     dispose,
   };
 }

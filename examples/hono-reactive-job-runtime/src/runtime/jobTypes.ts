@@ -64,5 +64,6 @@ export type JobRuntime = {
   cancel(): void;
   retry(): void;
   getState(): JobStateView;
+  subscribe(listener: (state: JobStateView) => void): () => void;
   dispose(): void;
 };

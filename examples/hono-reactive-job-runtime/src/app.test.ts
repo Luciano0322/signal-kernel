@@ -119,4 +119,57 @@ describe("hono reactive job runtime app", () => {
     expect(retried.ok).toBe(true);
     expect(["pending", "running", "success"]).toContain(retried.status);
   });
+
+  it("streams job state events through SSE", async () => {
+    const app = createApp();
+    const createResponse = await app.request("/jobs/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content: "SSE job content.",
+      }),
+    });
+
+    const created = (await createResponse.json()) as {
+      jobId: string;
+    };
+
+    const eventResponse = await app.request(`/jobs/${created.jobId}/events`);
+
+    expect(eventResponse.status).toBe(200);
+    expect(eventResponse.headers.get("content-type")).toContain(
+      "text/event-stream",
+    );
+
+    const reader = eventResponse.body?.getReader();
+
+    expect(reader).toBeDefined();
+
+    const decoder = new TextDecoder();
+    const first = await reader!.read();
+
+    expect(first.done).toBe(false);
+
+    const cancelResponse = await app.request(`/jobs/${created.jobId}/cancel`, {
+      method: "POST",
+    });
+
+    expect(cancelResponse.status).toBe(200);
+
+    let text = first.value ? decoder.decode(first.value, { stream: true }) : "";
+
+    for (let i = 0; i < 6 && !text.includes("event: done"); i += 1) {
+      const next = await reader!.read();
+
+      if (next.done) break;
+
+      text += decoder.decode(next.value, { stream: true });
+    }
+
+    expect(text).toContain("event: state");
+    expect(text).toContain("event: done");
+    expect(text).toContain('"status":"cancelled"');
+  });
 });

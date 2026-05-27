@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { createJob, getJob } from "../runtime/jobRegistry";
 
 function stepNotImplemented(step: string) {
@@ -56,15 +57,56 @@ jobsRoute.get("/:id", (c) => {
   return c.json(runtime.getState());
 });
 
-jobsRoute.get("/:id/events", (c) =>
-  c.json(
-    {
-      id: c.req.param("id"),
-      ...stepNotImplemented("Add SSE subscription in Step 5"),
-    },
-    501,
-  ),
-);
+jobsRoute.get("/:id/events", (c) => {
+  const id = c.req.param("id");
+  const runtime = getJob(id);
+
+  if (!runtime) return c.json(jobNotFound(id), 404);
+
+  return streamSSE(c, async (stream) => {
+    let unsubscribe: () => void = () => undefined;
+    let closeEvents: () => void = () => undefined;
+
+    const eventsClosed = new Promise<void>((resolve) => {
+      closeEvents = resolve;
+    });
+
+    let writes = Promise.resolve();
+
+    stream.onAbort(() => {
+      unsubscribe();
+      closeEvents();
+    });
+
+    unsubscribe = runtime.subscribe((state) => {
+      writes = writes
+        .then(async () => {
+          if (stream.closed || stream.aborted) return;
+
+          await stream.writeSSE({
+            event: "state",
+            data: JSON.stringify(state),
+          });
+
+          if (!state.isTerminal) return;
+
+          await stream.writeSSE({
+            event: "done",
+            data: JSON.stringify(state),
+          });
+
+          closeEvents();
+        })
+        .catch(() => {
+          closeEvents();
+        });
+    });
+
+    await eventsClosed;
+    unsubscribe();
+    await writes;
+  });
+});
 
 jobsRoute.post("/:id/cancel", (c) => {
   const id = c.req.param("id");
