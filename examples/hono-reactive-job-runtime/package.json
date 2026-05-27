@@ -1,0 +1,24 @@
+{
+  "name": "@signal-kernel/example-hono-reactive-job-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.3",
+    "@signal-kernel/async-runtime": "workspace:*",
+    "@signal-kernel/core": "workspace:*",
+    "@signal-kernel/snapshot": "workspace:*",
+    "hono": "^4.12.18"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.1",
+    "tsx": "^4.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
