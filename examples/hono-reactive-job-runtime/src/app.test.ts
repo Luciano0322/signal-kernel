@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { SNAPSHOT_SCHEMA } from "@signal-kernel/snapshot";
 import { createApp } from "./app";
 import { clearJobs } from "./runtime/jobRegistry";
 
@@ -171,5 +172,56 @@ describe("hono reactive job runtime app", () => {
     expect(text).toContain("event: state");
     expect(text).toContain("event: done");
     expect(text).toContain('"status":"cancelled"');
+  });
+
+  it("returns a signal-kernel snapshot document for a job", async () => {
+    const app = createApp();
+    const createResponse = await app.request("/jobs/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content: "Snapshot route content.",
+      }),
+    });
+
+    const created = (await createResponse.json()) as {
+      jobId: string;
+    };
+
+    const snapshotResponse = await app.request(
+      `/jobs/${created.jobId}/snapshot`,
+    );
+
+    expect(snapshotResponse.status).toBe(200);
+
+    const body = (await snapshotResponse.json()) as {
+      id: string;
+      snapshot: {
+        graph: {
+          id: string;
+          instanceId?: string;
+          version: string;
+        };
+        nodes: Array<{ id: string; kind: string }>;
+        schema: string;
+      };
+    };
+
+    expect(body.id).toBe(created.jobId);
+    expect(body.snapshot.schema).toBe(SNAPSHOT_SCHEMA);
+    expect(body.snapshot.graph).toEqual({
+      id: "hono-reactive-job",
+      instanceId: created.jobId,
+      version: "0.1.0",
+    });
+    expect(body.snapshot.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "content", kind: "signal" }),
+        expect.objectContaining({ id: "status", kind: "computed" }),
+        expect.objectContaining({ id: "analysis", kind: "stream" }),
+      ]),
+    );
   });
 });

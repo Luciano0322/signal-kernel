@@ -2,13 +2,6 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { createJob, getJob } from "../runtime/jobRegistry";
 
-function stepNotImplemented(step: string) {
-  return {
-    error: "Not implemented yet",
-    nextStep: step,
-  };
-}
-
 export const jobsRoute = new Hono();
 
 function jobNotFound(id: string) {
@@ -149,12 +142,14 @@ jobsRoute.post("/:id/retry", (c) => {
   });
 });
 
-jobsRoute.get("/:id/snapshot", (c) =>
-  c.json(
-    {
-      id: c.req.param("id"),
-      ...stepNotImplemented("Export @signal-kernel/snapshot document in Step 6"),
-    },
-    501,
-  ),
-);
+jobsRoute.get("/:id/snapshot", (c) => {
+  const id = c.req.param("id");
+  const runtime = getJob(id);
+
+  if (!runtime) return c.json(jobNotFound(id), 404);
+
+  return c.json({
+    id,
+    snapshot: runtime.snapshot(),
+  });
+});

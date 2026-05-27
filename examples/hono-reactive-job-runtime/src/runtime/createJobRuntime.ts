@@ -1,5 +1,6 @@
 import { createStreamResource } from "@signal-kernel/async-runtime";
 import { batch, computed, createEffect, signal } from "@signal-kernel/core";
+import { captureSnapshot, createSnapshotScope } from "@signal-kernel/snapshot";
 import { defaultAnalyzeDocument } from "../mock/analyzeDocument";
 import type {
   JobAnalyzeStream,
@@ -71,7 +72,7 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
     enabled: enabled.get(),
   }));
 
-  const [execution, executionMeta] = createStreamResource<
+  const analysis = createStreamResource<
     InternalRunSource,
     JobExecutionChunk,
     JobExecutionState,
@@ -99,6 +100,7 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
       onError: "keep-partial",
     },
   );
+  const [execution, executionMeta] = analysis;
 
   const status = computed<JobStatus>(() =>
     toJobStatus(enabled.get(), executionMeta.status()),
@@ -188,6 +190,41 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
     };
   }
 
+  function snapshot() {
+    const scope = createSnapshotScope({
+      graphId: "hono-reactive-job",
+      graphVersion: "0.1.0",
+      instanceId: id,
+    });
+
+    scope.signal("attempt", attempt);
+    scope.signal("content", content, {
+      redaction: {
+        redact: (value) => ({
+          length: value.length,
+        }),
+      },
+    });
+
+    scope.computed("status", status);
+    scope.computed("progress", progress);
+    scope.computed("currentStep", currentStep);
+    scope.computed("visibleResult", visibleResult);
+    scope.computed("canCancel", canCancel);
+    scope.computed("canRetry", canRetry);
+    scope.computed("isTerminal", isTerminal);
+
+    scope.stream("analysis", analysis, {
+      restore: "inspect-only",
+      sourceKey: {
+        attempt: attempt.peek(),
+        jobId: id,
+      },
+    });
+
+    return captureSnapshot(scope);
+  }
+
   function dispose() {
     if (disposed) return;
 
@@ -204,6 +241,7 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
     retry,
     getState,
     subscribe,
+    snapshot,
     dispose,
   };
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SNAPSHOT_SCHEMA } from "@signal-kernel/snapshot";
 import { analyzeDocument, analysisSteps } from "../mock/analyzeDocument";
 import { createJobRuntime } from "./createJobRuntime";
 import type {
@@ -278,6 +279,58 @@ describe("createJobRuntime", () => {
     expect(states).toContain("success:100");
 
     unsubscribe();
+    runtime.dispose();
+  });
+
+  it("captures a snapshot document for the public job runtime boundary", async () => {
+    const analyze: JobAnalyzeStream = (source, ctx) =>
+      analyzeDocument(source, ctx, {
+        wait: async () => undefined,
+      });
+
+    const runtime = createJobRuntime({
+      id: "job_snapshot",
+      content: "Snapshot-sensitive document content",
+      analyze,
+    });
+
+    runtime.start();
+    await flushMicrotasks();
+
+    const snapshot = runtime.snapshot();
+
+    expect(snapshot.schema).toBe(SNAPSHOT_SCHEMA);
+    expect(snapshot.graph).toEqual({
+      id: "hono-reactive-job",
+      instanceId: "job_snapshot",
+      version: "0.1.0",
+    });
+    expect(snapshot.nodes).toContainEqual({
+      id: "content",
+      kind: "signal",
+      value: {
+        length: "Snapshot-sensitive document content".length,
+      },
+    });
+    expect(snapshot.nodes).toContainEqual({
+      id: "status",
+      kind: "computed",
+      restore: "recompute",
+      value: "success",
+    });
+    expect(snapshot.nodes).toContainEqual(
+      expect.objectContaining({
+        id: "analysis",
+        kind: "stream",
+        restore: "inspect-only",
+        sourceKey: {
+          attempt: 0,
+          jobId: "job_snapshot",
+        },
+        status: "success",
+      }),
+    );
+
     runtime.dispose();
   });
 

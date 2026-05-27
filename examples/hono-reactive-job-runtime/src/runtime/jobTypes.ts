@@ -1,4 +1,5 @@
 import type { StreamContext } from "@signal-kernel/async-runtime";
+import type { SnapshotDocument } from "@signal-kernel/snapshot";
 
 export type JobStatus =
   | "idle"
@@ -65,5 +66,6 @@ export type JobRuntime = {
   retry(): void;
   getState(): JobStateView;
   subscribe(listener: (state: JobStateView) => void): () => void;
+  snapshot(): SnapshotDocument;
   dispose(): void;
 };
