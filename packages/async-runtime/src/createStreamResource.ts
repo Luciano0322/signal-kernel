@@ -7,6 +7,20 @@ import type {
   StreamResourceOptions,
 } from "./types";
 
+export interface StreamResourceDescriptor<
+  I,
+  TChunk,
+  TValue,
+  E = unknown,
+> extends StreamResourceOptions<TChunk, TValue, E> {
+  input?: () => I;
+  observe?: () => void;
+  stream: (
+    input: I,
+    ctx: StreamContext<TChunk, TValue>,
+  ) => Promise<void> | void;
+}
+
 function applyInterruptionPolicy<T>(
   policy: StreamInterruptionPolicy | undefined,
   stableValue: T | undefined,
@@ -34,8 +48,31 @@ export function createStreamResource<S, TChunk, TValue, E = unknown>(
     sourceValue: S,
     ctx: StreamContext<TChunk, TValue>,
   ) => Promise<void> | void,
+  options?: StreamResourceOptions<TChunk, TValue, E>,
+): [() => TValue | undefined, StreamAsyncMeta<E, TValue>];
+export function createStreamResource<TChunk, TValue, E = unknown>(
+  descriptor: StreamResourceDescriptor<undefined, TChunk, TValue, E>,
+): [() => TValue | undefined, StreamAsyncMeta<E, TValue>];
+export function createStreamResource<I, TChunk, TValue, E = unknown>(
+  descriptor: StreamResourceDescriptor<I, TChunk, TValue, E>,
+): [() => TValue | undefined, StreamAsyncMeta<E, TValue>];
+export function createStreamResource<I, TChunk, TValue, E = unknown>(
+  sourceOrDescriptor:
+    | (() => I)
+    | StreamResourceDescriptor<I, TChunk, TValue, E>,
+  streamer?: (
+    sourceValue: I,
+    ctx: StreamContext<TChunk, TValue>,
+  ) => Promise<void> | void,
   options: StreamResourceOptions<TChunk, TValue, E> = {},
 ): [() => TValue | undefined, StreamAsyncMeta<E, TValue>] {
+  const descriptor =
+    typeof sourceOrDescriptor === "function"
+      ? createDescriptorFromPositional(sourceOrDescriptor, streamer, options)
+      : sourceOrDescriptor;
+
+  const { input, observe, stream } = descriptor;
+  const streamOptions = toStreamOptions(descriptor);
   const {
     initialValue,
     reduce,
@@ -43,7 +80,7 @@ export function createStreamResource<S, TChunk, TValue, E = unknown>(
     onError = "rollback",
     onSuccess,
     onErrorEffect,
-  } = options;
+  } = streamOptions;
 
   const valueSig = signal<TValue | undefined>(initialValue);
   const stableValueSig = signal<TValue | undefined>(initialValue);
@@ -92,7 +129,11 @@ export function createStreamResource<S, TChunk, TValue, E = unknown>(
     });
   }
 
-  function run(sourceValue: S) {
+  function readInput() {
+    return input ? input() : (undefined as I);
+  }
+
+  function run(sourceValue: I) {
     version += 1;
     const runVersion = version;
     activeVersion = runVersion;
@@ -154,7 +195,7 @@ export function createStreamResource<S, TChunk, TValue, E = unknown>(
     };
 
     Promise.resolve()
-      .then(() => streamer(sourceValue, ctx))
+      .then(() => stream(sourceValue, ctx))
       .catch((err: E) => {
         if (cancelled || runVersion !== activeVersion) return;
 
@@ -176,7 +217,8 @@ export function createStreamResource<S, TChunk, TValue, E = unknown>(
   }
 
   createEffect(() => {
-    const nextSource = source();
+    const nextSource = readInput();
+    observe?.();
     invalidateActiveRun();
     run(nextSource);
   });
@@ -186,11 +228,54 @@ export function createStreamResource<S, TChunk, TValue, E = unknown>(
     error: errorSig.get,
     reload: () => {
       invalidateActiveRun();
-      run(source());
+      run(readInput());
     },
     cancel: manualCancel,
     stableValue: stableValueSig.get,
   };
 
   return [valueSig.get, meta];
+}
+
+function createDescriptorFromPositional<I, TChunk, TValue, E>(
+  source: () => I,
+  streamer:
+    | ((
+        sourceValue: I,
+        ctx: StreamContext<TChunk, TValue>,
+      ) => Promise<void> | void)
+    | undefined,
+  options: StreamResourceOptions<TChunk, TValue, E>,
+): StreamResourceDescriptor<I, TChunk, TValue, E> {
+  if (!streamer) {
+    throw new TypeError("createStreamResource requires a streamer function");
+  }
+
+  return {
+    ...options,
+    input: source,
+    stream: streamer,
+  };
+}
+
+function toStreamOptions<TChunk, TValue, E>(
+  options: StreamResourceOptions<TChunk, TValue, E>,
+): StreamResourceOptions<TChunk, TValue, E> {
+  const {
+    initialValue,
+    reduce,
+    onCancel,
+    onError,
+    onSuccess,
+    onErrorEffect,
+  } = options;
+
+  return {
+    initialValue,
+    reduce,
+    onCancel,
+    onError,
+    onSuccess,
+    onErrorEffect,
+  };
 }

@@ -9,12 +9,13 @@
 
 `@signal-kernel/async-runtime` provides a set of high-level utilities for managing asynchronous state using the fine-grained reactive engine from `@signal-kernel/core`.
 
-It exposes four primary capabilities:
+It exposes five primary capabilities:
 
 * `createResource()` – A source-driven async state primitive similar to Solid's `createResource`, but built on a deterministic scheduler and cancellation model.
 * `createStreamResource()` – A source-driven streaming async primitive for progressive visible state with stable committed value semantics.
 * `fromPromise()` – Converts a cancellable Promise producer into a reactive async state.
 * `asyncSignal()` – A convenient wrapper exposing both value and metadata (status, error, reload).
+* `createRevision()` / `createKeyedRevision()` - Signal-backed invalidation sources for declarative async consistency.
 
 This package does not depend on any frontend framework.
 It can be used in browser apps, server runtimes, CLI tools, or any JS environment.
@@ -68,16 +69,33 @@ createResource<S, T, E = unknown>(
   fetcher: (sourceValue: S, ctx: ResourceContext) => Promise<T>,
   options?: ResourceOptions
 ): [() => T | undefined, AsyncMeta<E>]
+
+createResource<I, T, E = unknown>({
+  input?: () => I;
+  observe?: () => void;
+  run: (input: I, ctx: ResourceContext) => Promise<T>;
+  trigger?: "auto";
+}): [() => T | undefined, AsyncMeta<E>]
+
+createResource<I, T, E = unknown>({
+  trigger: "manual";
+  run: (input: I, ctx: ResourceContext) => Promise<T>;
+  invalidates?: (result: T, input: I) => InvalidationTarget[];
+}): [() => T | undefined, RunnableAsyncMeta<I, T, E>]
 ```
 
 ### How it works
 
 * The `source()` function is tracked via `createEffect()`.
+* In object form, `input()` is tracked and its return value is passed to `run(input, ctx)`.
+* `observe()` may track additional invalidation dependencies without passing them to `run()`.
 * When `source()` changes:
 
   * The previous async work is canceled (`meta.cancel("source-changed")`).
-  * A new fetch begins (`meta.reload()`).
+  * A new fetch begins with the latest input.
 * On first run, it automatically loads initial data.
+* Manual resources run only when `meta.run(input)` is called.
+* Manual resource `invalidates` targets run only after a successful operation.
 * Values and metadata update reactively.
 
 ### Example
@@ -104,11 +122,43 @@ createEffect(() => {
 id.set(2);
 ```
 
+### Declarative invalidation
+
+```ts
+const usersRevision = createRevision();
+
+const [users] = createResource({
+  observe: () => {
+    usersRevision.get();
+  },
+  run: async (_input, ctx) => {
+    const res = await fetch("/api/users", { signal: ctx.signal });
+    return res.json();
+  },
+});
+
+const [, updateUserMeta] = createResource({
+  trigger: "manual",
+  run: async (payload: { id: string; name: string }, ctx) => {
+    const res = await fetch(`/api/users/${payload.id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+      signal: ctx.signal,
+    });
+    return res.json();
+  },
+  invalidates: () => [usersRevision],
+});
+
+await updateUserMeta.run({ id: "u1", name: "Alice" });
+```
+
 ### Key features
 
 * Cancel old requests automatically.
 * Works perfectly with fine-grained reactivity in the core runtime.
 * Fully deterministic, thanks to the two-phase scheduler.
+* Supports declarative invalidation without a global query cache.
 
 ---
 
@@ -161,6 +211,18 @@ createStreamResource<S, TChunk, TValue, E = unknown>(
   ) => Promise<void> | void,
   options?: StreamResourceOptions<TChunk, TValue, E>
 ): [() => TValue | undefined, StreamAsyncMeta<E, TValue>]
+
+createStreamResource<I, TChunk, TValue, E = unknown>({
+  input?: () => I;
+  observe?: () => void;
+  stream: (
+    input: I,
+    ctx: StreamContext<TChunk, TValue>
+  ) => Promise<void> | void;
+} & StreamResourceOptions<TChunk, TValue, E>): [
+  () => TValue | undefined,
+  StreamAsyncMeta<E, TValue>
+]
 ```
 
 ### Core semantics
@@ -193,9 +255,9 @@ For example:
 ```ts
 const prompt = signal("Explain signals simply");
 
-const [text, meta] = createStreamResource(
-  prompt.get,
-  async (input, ctx) => {
+const [text, meta] = createStreamResource({
+  input: prompt.get,
+  stream: async (input, ctx) => {
     const chunks = ["Signals ", "track ", "dependencies."];
     for (const chunk of chunks) {
       if (ctx.isCancelled()) return;
@@ -204,13 +266,11 @@ const [text, meta] = createStreamResource(
     }
     ctx.done();
   },
-  {
-    initialValue: "",
-    reduce: (current = "", chunk) => current + chunk,
-    onCancel: "keep-partial",
-    onError: "rollback",
-  }
-);
+  initialValue: "",
+  reduce: (current = "", chunk) => current + chunk,
+  onCancel: "keep-partial",
+  onError: "rollback",
+});
 
 createEffect(() => {
   console.log("Text:", text());
@@ -223,6 +283,7 @@ createEffect(() => {
 
 * Supports progressive visible async state.
 * Separates current visible value from last committed stable value.
+* Tracks `input()` and `observe()` dependencies for stream resubscription.
 * Allows explicit cancellation/error policies (`keep-partial`, `rollback`, `clear`).
 * Fits naturally into the same deterministic runtime model as `createResource()`.
 
@@ -336,12 +397,19 @@ The package exports the async-related types:
 * `AsyncStatus`
 * `AsyncSignal<T, E>`
 * `AsyncMeta<E>`
+* `RunnableAsyncMeta<I, T, E>`
 * `FromPromiseOptions`
 * `ResourceOptions`
+* `AutoResourceDescriptor<I, T>`
+* `ManualResourceDescriptor<I, T>`
+* `Revision`
+* `KeyedRevision<K>`
+* `InvalidationTarget`
 * `StreamAsyncStatus`
 * `StreamInterruptionPolicy`
 * `StreamContext<TChunk, TValue>`
 * `StreamResourceOptions<TChunk, TValue, E>`
+* `StreamResourceDescriptor<I, TChunk, TValue, E>`
 * `StreamAsyncMeta<E, TValue>`
 
 These allow you to annotate higher-level abstractions or build your own async primitives.
