@@ -119,6 +119,8 @@ Preferred high-level API for source-driven async derivation.
 
 Use this when async work depends on reactive input and should be kept aligned with source changes.
 
+Prefer object form with `input`, `observe`, and `run` in new examples. The older positional shape can be treated as a legacy shorthand, but it should not be the primary teaching form.
+
 This should generally be the default recommendation in application-facing examples.
 
 ### `createStreamResource`
@@ -126,6 +128,8 @@ This should generally be the default recommendation in application-facing exampl
 High-level API for source-driven streaming derivation.
 
 Use this when async work emits multiple updates over time and should stay bound to a reactive source.
+
+Prefer object form with `input`, `observe`, and `stream` in new examples.
 
 This should be the default recommendation for stream-shaped data rather than forcing streaming use cases into `createResource` or manual effect code.
 
@@ -205,7 +209,11 @@ Example shape:
 
 ```ts
 const query = signal("");
-const [results, meta] = createResource(query, fetchSearchResults);
+const [results, meta] = createResource({
+  input: query.get,
+  run: (currentQuery, ctx) =>
+    fetchSearchResults(currentQuery, { signal: ctx.signal }),
+});
 ```
 
 This is the preferred style when async work depends on changing reactive input.
@@ -246,7 +254,11 @@ Example shape:
 
 ```ts
 const roomId = signal("general");
-const [messages, meta] = createStreamResource(roomId, connectMessageStream);
+const [messages, meta] = createStreamResource({
+  input: roomId.get,
+  stream: (currentRoomId, ctx) =>
+    connectMessageStream(currentRoomId, ctx),
+});
 ```
 
 This is the preferred style for streaming data that should reconnect, invalidate, and detach correctly when the reactive source changes.

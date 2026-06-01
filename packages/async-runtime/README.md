@@ -103,15 +103,15 @@ createResource<I, T, E = unknown>({
 ```ts
 const id = signal(1);
 
-const [user, meta] = createResource(
-  id.get,
-  async (id, ctx) => {
+const [user, meta] = createResource({
+  input: id.get,
+  run: async (id, ctx) => {
     const res = await fetch(`/api/user/${id}`, {
       signal: ctx.signal,
     });
     return res.json();
-  }
-);
+  },
+});
 
 createEffect(() => {
   console.log("User:", user());
