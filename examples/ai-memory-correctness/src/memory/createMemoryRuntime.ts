@@ -1,5 +1,9 @@
 import { computed, signal } from "@signal-kernel/core";
-import { createResource, type AsyncMeta } from "@signal-kernel/async-runtime";
+import {
+  createResource,
+  createRevision,
+  type AsyncMeta,
+} from "@signal-kernel/async-runtime";
 import { consolidateFacts } from "./consolidateFacts";
 import { extractCandidateFacts } from "./extractCandidateFacts";
 import { renderMemoryPrompt } from "./renderMemoryPrompt";
@@ -35,7 +39,6 @@ export type CreateMemoryContextOptions = {
 
 export type RecallSource = {
   query: string;
-  revision: number;
   scope: MemoryScope;
 };
 
@@ -58,14 +61,14 @@ export function createMemoryRuntime(options: CreateMemoryRuntimeOptions) {
   const consolidate = options.consolidate ?? consolidateFacts;
   const extract = options.extract ?? extractCandidateFacts;
   const render = options.render ?? renderMemoryPrompt;
-  const memoryRevision = signal(0);
+  const memoryRevision = createRevision();
   const retainState = signal<RetainState>({
     status: "idle",
     candidates: [],
   });
 
   function notifyMemoryChanged() {
-    memoryRevision.set((current) => current + 1);
+    memoryRevision.invalidate("memory-changed");
   }
 
   function getRestorableDriver(): RestorableMemoryDriver {
@@ -133,13 +136,15 @@ export function createMemoryRuntime(options: CreateMemoryRuntimeOptions) {
 
   function createContext(contextOptions: CreateMemoryContextOptions) {
     const recallQuery = computed(() => contextOptions.input().trim());
-    const recalledFacts = createResource<RecallSource, MemoryFact[], Error>(
-      () => ({
+    const recalledFacts = createResource<RecallSource, MemoryFact[], Error>({
+      input: () => ({
         query: recallQuery.get(),
-        revision: memoryRevision.get(),
         scope: options.scope(),
       }),
-      async ({ query, scope }, ctx): Promise<MemoryFact[]> => {
+      observe: () => {
+        memoryRevision.get();
+      },
+      run: async ({ query, scope }, ctx): Promise<MemoryFact[]> => {
         if (!query) return [];
 
         const result: RecallResult = await options.driver.recall({
@@ -150,10 +155,8 @@ export function createMemoryRuntime(options: CreateMemoryRuntimeOptions) {
 
         return result.facts;
       },
-      {
-        keepPreviousValueOnPending: false,
-      },
-    );
+      keepPreviousValueOnPending: false,
+    });
     const [recalledFactValue, recallMeta] = recalledFacts;
     const renderedPrompt = computed(() => render(recalledFactValue() ?? []));
     const status = computed(() => recallMeta.status());

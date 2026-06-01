@@ -45,7 +45,7 @@ Task 3 currently provides the memory graph core:
 * `recallQuery` computed value
 * `recalledFacts` async resource through `createResource()`
 * `renderedMemoryPrompt` computed value
-* memory refresh invalidation through a revision signal
+* memory refresh invalidation through `createRevision()`
 * tests for stale recall race and prompt derivation
 
 Task 4 provides mock model streaming:
