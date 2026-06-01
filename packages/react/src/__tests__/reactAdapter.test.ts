@@ -229,10 +229,10 @@ describe("@signal-kernel/react", () => {
     const error = signal<Error | undefined>(undefined);
     const cancel = vi.fn();
 
-    const meta: AsyncMeta<Error> = {
+    const meta: AsyncMeta<Error, string> = {
       status: status.get,
       error: error.get,
-      reload: vi.fn(),
+      reload: vi.fn(async () => undefined),
       cancel,
       keepPreviousValueOnPending: true,
     };
