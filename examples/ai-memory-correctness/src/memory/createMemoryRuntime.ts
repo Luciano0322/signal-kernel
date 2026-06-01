@@ -46,12 +46,12 @@ export type MemoryContextSnapshot = {
   renderedPrompt: string;
   revision: number;
   scope: MemoryScope;
-  status: ReturnType<AsyncMeta<Error>["status"]>;
+  status: ReturnType<AsyncMeta<Error, MemoryFact[]>["status"]>;
 };
 
 export type RecalledFactsResource = [
   value: () => MemoryFact[] | undefined,
-  meta: AsyncMeta<Error>,
+  meta: AsyncMeta<Error, MemoryFact[]>,
 ];
 
 export function createMemoryRuntime(options: CreateMemoryRuntimeOptions) {

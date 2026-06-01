@@ -122,7 +122,7 @@ export interface OpsEvent {
 
 export type ResourceTuple<T, E = unknown> = [
   value: () => T | undefined,
-  meta: AsyncMeta<E>,
+  meta: AsyncMeta<E, T>,
 ];
 
 export type StreamTuple<TValue, E = unknown> = [
