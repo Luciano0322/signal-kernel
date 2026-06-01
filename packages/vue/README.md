@@ -68,16 +68,16 @@ import { useResource } from "@signal-kernel/vue";
 
 const userId = signal("1");
 
-const userResource = createResource(
-  userId.get,
-  async (id, ctx) => {
+const userResource = createResource({
+  input: userId.get,
+  run: async (id, ctx) => {
     const response = await fetch(`/api/users/${id}`, {
       signal: ctx.signal,
     });
 
     return response.json() as Promise<{ name: string }>;
   },
-);
+});
 
 export function useUserView() {
   const user = useResource(userResource);
@@ -93,6 +93,8 @@ export function useUserView() {
 ```
 
 Resource helpers consume resource tuples created by `@signal-kernel/async-runtime`. They observe value and metadata getters so metadata-only transitions update Vue refs. They do not add caching, retry, cancellation, or Suspense policy.
+
+When a manual resource exposes runnable metadata, `useResource()` preserves that metadata type on `resource.meta`, so `resource.meta.run(input)` remains available after passing through the Vue adapter.
 
 ## Boundary
 
