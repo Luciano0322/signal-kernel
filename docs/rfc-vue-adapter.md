@@ -145,14 +145,14 @@ Purpose: expose a `createResource()` tuple as Vue refs while keeping async seman
 
 ```ts
 function useResource<T, E>(
-  resource: [() => T | undefined, AsyncMeta<E>]
+  resource: [() => T | undefined, AsyncMeta<E, T>]
 ): {
   value: Readonly<Ref<T | undefined>>;
   status: Readonly<Ref<AsyncStatus>>;
   error: Readonly<Ref<E | undefined>>;
-  reload: () => void;
+  reload: () => Promise<T | undefined>;
   cancel: (reason?: unknown) => void;
-  meta: AsyncMeta<E>;
+  meta: AsyncMeta<E, T>;
 };
 ```
 
