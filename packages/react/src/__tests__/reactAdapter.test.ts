@@ -3,6 +3,7 @@ import { computed, signal } from "@signal-kernel/core";
 import type {
   AsyncMeta,
   AsyncStatus,
+  RunnableAsyncMeta,
   StreamAsyncMeta,
   StreamAsyncStatus,
 } from "@signal-kernel/async-runtime";
@@ -255,6 +256,27 @@ describe("@signal-kernel/react", () => {
     reactHarness.cleanup();
 
     expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it("preserves runnable resource metadata through useResource", async () => {
+    const value = signal<string | undefined>(undefined);
+    const status = signal<AsyncStatus>("idle");
+    const error = signal<Error | undefined>(undefined);
+    const run = vi.fn(async (input: number) => `user:${input}`);
+
+    const meta: RunnableAsyncMeta<number, string, Error> = {
+      status: status.get,
+      error: error.get,
+      reload: vi.fn(async () => undefined),
+      cancel: vi.fn(),
+      run,
+      keepPreviousValueOnPending: true,
+    };
+
+    const [, returnedMeta] = useResource([value.get, meta]);
+
+    await expect(returnedMeta.run(1)).resolves.toBe("user:1");
+    expect(run).toHaveBeenCalledWith(1);
   });
 
   it("re-renders stream resource consumers for stream metadata changes", async () => {

@@ -93,16 +93,16 @@ import { useResource } from "@signal-kernel/react";
 
 const userId = signal("1");
 
-const userResource = createResource(
-  userId.get,
-  async (id, ctx) => {
+const userResource = createResource({
+  input: userId.get,
+  run: async (id, ctx) => {
     const response = await fetch(`/api/users/${id}`, {
       signal: ctx.signal,
     });
 
     return response.json() as Promise<{ name: string }>;
   },
-);
+});
 
 function UserView() {
   const [user, meta] = useResource(userResource);
@@ -126,6 +126,8 @@ const status = meta.status();
 ```
 
 The returned `value` is the value captured by the adapter snapshot for this render. The returned `meta` is still the live async-runtime metadata object. The hook subscribes to metadata reads internally so `meta.status()`, `meta.error()`, and stream `meta.stableValue()` changes can trigger React updates, but ownership of those transitions remains in `@signal-kernel/async-runtime`.
+
+When a manual resource exposes runnable metadata, `useResource()` preserves that metadata type, so `meta.run(input)` remains available after passing through the React adapter.
 
 When a component needs value and metadata to be consumed as one named render snapshot, wrap the tuple locally in a small hook that reads the value and metadata inside one `useReactive()` call. Keep that hook in the adapter or application boundary; do not move rendering concerns into the graph or async runtime.
 

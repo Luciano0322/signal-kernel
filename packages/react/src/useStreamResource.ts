@@ -1,29 +1,41 @@
-import type { StreamAsyncMeta } from "@signal-kernel/async-runtime";
+import type {
+  StreamAsyncMeta,
+  StreamAsyncStatus,
+} from "@signal-kernel/async-runtime";
 import { useCallback } from "react";
 import { useReactive } from "./useReactive.js";
 
-export type StreamResourceTuple<T, E = unknown> = [
+export type StreamResourceTuple<
+  T,
+  M extends StreamAsyncMeta<unknown, T> = StreamAsyncMeta<unknown, T>,
+> = [
   value: () => T | undefined,
-  meta: StreamAsyncMeta<E, T>,
+  meta: M,
 ];
 
-type StreamResourceSnapshot<T, E = unknown> = {
+type StreamResourceError<M, T> =
+  M extends StreamAsyncMeta<infer E, T> ? E : unknown;
+
+type StreamResourceSnapshot<T, M extends StreamAsyncMeta<unknown, T>> = {
   value: T | undefined;
-  status: ReturnType<StreamAsyncMeta<E, T>["status"]>;
-  error: ReturnType<StreamAsyncMeta<E, T>["error"]>;
-  stableValue: ReturnType<StreamAsyncMeta<E, T>["stableValue"]>;
+  status: StreamAsyncStatus;
+  error: StreamResourceError<M, T> | undefined;
+  stableValue: T | undefined;
 };
 
-export function useStreamResource<T, E = unknown>(
-  resource: StreamResourceTuple<T, E>,
-): [T | undefined, StreamAsyncMeta<E, T>] {
+export function useStreamResource<
+  T,
+  M extends StreamAsyncMeta<unknown, T> = StreamAsyncMeta<unknown, T>,
+>(
+  resource: StreamResourceTuple<T, M>,
+): [T | undefined, M] {
   const [value, meta] = resource;
 
   const read = useCallback(
-    (): StreamResourceSnapshot<T, E> => ({
+    (): StreamResourceSnapshot<T, M> => ({
       value: value(),
       status: meta.status(),
-      error: meta.error(),
+      error: meta.error() as StreamResourceError<M, T> | undefined,
       stableValue: meta.stableValue(),
     }),
     [value, meta],
