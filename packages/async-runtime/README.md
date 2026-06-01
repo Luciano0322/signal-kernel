@@ -64,18 +64,20 @@ interface ResourceContext {
   token: number;
 }
 
+type ResourceOptions<T = unknown> = Omit<FromPromiseOptions<T>, "eager">;
+
 createResource<S, T, E = unknown>(
   source: () => S,
   fetcher: (sourceValue: S, ctx: ResourceContext) => Promise<T>,
-  options?: ResourceOptions
-): [() => T | undefined, AsyncMeta<E>]
+  options?: ResourceOptions<T>
+): [() => T | undefined, AsyncMeta<E, T>]
 
 createResource<I, T, E = unknown>({
   input?: () => I;
   observe?: () => void;
   run: (input: I, ctx: ResourceContext) => Promise<T>;
   trigger?: "auto";
-}): [() => T | undefined, AsyncMeta<E>]
+}): [() => T | undefined, AsyncMeta<E, T>]
 
 createResource<I, T, E = unknown>({
   trigger: "manual";
@@ -95,8 +97,11 @@ createResource<I, T, E = unknown>({
   * A new fetch begins with the latest input.
 * On first run, it automatically loads initial data.
 * Manual resources run only when `meta.run(input)` is called.
+* Manual resource `reload()` reruns the most recent `run(input)` input. Before any input exists, it is a no-op.
 * Manual resource `invalidates` targets run only after a successful operation.
 * Values and metadata update reactively.
+
+`eager` is intentionally not part of `ResourceOptions`. Auto resources are driven by tracked graph dependencies; manual resources are driven by `meta.run(input)`.
 
 ### Example
 
@@ -300,8 +305,23 @@ createEffect(() => {
 ```ts
 fromPromise<T, E = unknown>(
   makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
-  options?: FromPromiseOptions
+  options?: FromPromiseOptions<T>
 ): AsyncSignal<T, E>
+
+fromPromise<I, T, E = unknown>({
+  run: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>;
+  keepPreviousValueOnPending?: boolean;
+  onSuccess?: (value: T) => void;
+  onError?: (error: unknown) => void;
+  onCancel?: (reason?: unknown) => void;
+}): RunnableAsyncSignal<I, T, E>
+
+fromPromise<I, T, E = unknown>({
+  eager: true;
+  initialInput: I;
+  run: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>;
+  keepPreviousValueOnPending?: boolean;
+}): RunnableAsyncSignal<I, T, E>
 ```
 
 ### What it does
@@ -312,6 +332,7 @@ fromPromise<T, E = unknown>(
 * `status(): "idle" | "pending" | "success" | "error" | "cancelled"`
 * `error(): E | undefined`
 * `reload()`
+* `run(input)` when using the descriptor form
 * `cancel(reason?)`
 
 It internally:
@@ -338,6 +359,23 @@ createEffect(() => {
 });
 ```
 
+Input-based work should use descriptor form so the runtime does not need to infer the producer shape:
+
+```ts
+const user = fromPromise({
+  run: async (id: string, ctx) => {
+    const res = await fetch(`/api/user/${id}`, {
+      signal: ctx.signal,
+    });
+    return res.json();
+  },
+});
+
+await user.run("u1");
+```
+
+Function form is eager by default because it has no external input to wait for. Descriptor form is lazy by default because the runtime needs `run(input)` to establish the first input. If a descriptor should run immediately, pass both `eager: true` and `initialInput`.
+
 ---
 
 ---
@@ -351,8 +389,20 @@ createEffect(() => {
 ```ts
 asyncSignal<T, E = unknown>(
   makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
-  options?: FromPromiseOptions
-): [() => T | undefined, AsyncMeta<E>]
+  options?: FromPromiseOptions<T>
+): [() => T | undefined, AsyncMeta<E, T>]
+
+asyncSignal<I, T, E = unknown>({
+  run: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>;
+  keepPreviousValueOnPending?: boolean;
+}): [() => T | undefined, RunnableAsyncMeta<I, T, E>]
+
+asyncSignal<I, T, E = unknown>({
+  eager: true;
+  initialInput: I;
+  run: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>;
+  keepPreviousValueOnPending?: boolean;
+}): [() => T | undefined, RunnableAsyncMeta<I, T, E>]
 ```
 
 ### What it provides
@@ -384,6 +434,16 @@ createEffect(() => {
 });
 ```
 
+For explicit input-based execution:
+
+```ts
+const [user, meta] = asyncSignal({
+  run: (id: string, ctx) => fetchUser(id, { signal: ctx.signal }),
+});
+
+await meta.run("u1");
+```
+
 ---
 
 ---
@@ -396,10 +456,12 @@ The package exports the async-related types:
 
 * `AsyncStatus`
 * `AsyncSignal<T, E>`
-* `AsyncMeta<E>`
+* `AsyncMeta<E, T = unknown>`
 * `RunnableAsyncMeta<I, T, E>`
-* `FromPromiseOptions`
-* `ResourceOptions`
+* `FromPromiseOptions<T = unknown>`
+* `FromPromiseDescriptor<I, T>`
+* `AsyncSignalDescriptor<I, T>`
+* `ResourceOptions<T = unknown>`
 * `AutoResourceDescriptor<I, T>`
 * `ManualResourceDescriptor<I, T>`
 * `Revision`

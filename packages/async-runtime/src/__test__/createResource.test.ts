@@ -206,6 +206,39 @@ describe("createResource", () => {
     expect(value()).toBe(30);
   });
 
+  it("manual reload reruns the latest established input", async () => {
+    const fetcher = vi.fn(async (input: string, _ctx: ResourceContext) => {
+      await tick();
+      return `${input}:${fetcher.mock.calls.length}`;
+    });
+
+    const [value, meta] = createResource({
+      trigger: "manual",
+      run: fetcher,
+    });
+
+    await expect(meta.run("user-1")).resolves.toBe("user-1:1");
+    await expect(meta.reload()).resolves.toBe("user-1:2");
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls[1]![0]).toBe("user-1");
+    expect(value()).toBe("user-1:2");
+  });
+
+  it("manual reload is a no-op before any input is established", async () => {
+    const fetcher = vi.fn(async (input: string, _ctx: ResourceContext) => input);
+
+    const [, meta] = createResource({
+      trigger: "manual",
+      run: fetcher,
+    });
+
+    await expect(meta.reload()).resolves.toBeUndefined();
+
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(meta.status()).toBe("idle");
+  });
+
   it("updates manual resource errors without invalidating targets", async () => {
     const target = { invalidate: vi.fn() };
     const error = new Error("boom");

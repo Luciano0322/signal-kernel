@@ -105,6 +105,10 @@ Low-level primitive.
 
 Use this when the caller needs direct control over promise lifecycle behavior, hooks, or advanced async semantics.
 
+Use function form for ctx-only work and descriptor form for input-based work. Do not infer producer shape from function arity.
+
+Function form is eager by default. Input descriptor form is lazy by default; if a descriptor must run immediately, it must provide both `eager: true` and `initialInput`.
+
 This is not the default entry point for most app-level usage.
 
 ### `asyncSignal`
@@ -113,6 +117,10 @@ A more ergonomic wrapper around the lower-level async primitive.
 
 Use this when the caller wants signal-like access to async state without manually wiring the primitive layer.
 
+Use descriptor form when the async producer needs explicit `run(input)` semantics.
+
+Descriptor form is lazy by default. Use `initialInput` only when eager descriptor execution is intentional.
+
 ### `createResource`
 
 Preferred high-level API for source-driven async derivation.
@@ -120,6 +128,8 @@ Preferred high-level API for source-driven async derivation.
 Use this when async work depends on reactive input and should be kept aligned with source changes.
 
 Prefer object form with `input`, `observe`, and `run` in new examples. The older positional shape can be treated as a legacy shorthand, but it should not be the primary teaching form.
+
+Do not pass `eager` to `createResource`; auto resources run from tracked graph dependencies and manual resources run from `meta.run(input)`.
 
 This should generally be the default recommendation in application-facing examples.
 
@@ -228,6 +238,16 @@ Example shape:
 const [user, meta] = asyncSignal(() => fetchUser(id()));
 ```
 
+For explicit input-based execution:
+
+```ts
+const [user, meta] = asyncSignal({
+  run: (id: string, ctx) => fetchUser(id, { signal: ctx.signal }),
+});
+
+await meta.run("u1");
+```
+
 ### Pattern 3: low-level lifecycle customization
 
 Use `fromPromise` only when lower-level hooks or direct lifecycle control are required.
@@ -235,7 +255,7 @@ Use `fromPromise` only when lower-level hooks or direct lifecycle control are re
 Example shape:
 
 ```ts
-const request = fromPromise(() => fetchUser(id()), {
+const request = fromPromise(async (ctx) => fetchCurrentUser({ signal: ctx.signal }), {
   keepPreviousValueOnPending: true,
   onSuccess(value) {
     // custom handling
@@ -244,6 +264,16 @@ const request = fromPromise(() => fetchUser(id()), {
     // custom handling
   },
 });
+```
+
+For input-based low-level work:
+
+```ts
+const request = fromPromise({
+  run: (id: string, ctx) => fetchUser(id, { signal: ctx.signal }),
+});
+
+await request.run("u1");
 ```
 
 ### Pattern 4: source-driven streaming derivation

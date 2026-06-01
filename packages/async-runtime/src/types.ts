@@ -4,14 +4,13 @@ export interface AsyncSignal<T, E = unknown> {
   value: () => T | undefined;
   status: () => AsyncStatus;
   error: () => E | undefined;
-  reload: () => void;
-  cancel:  (reason?: unknown) => void;
+  reload: () => Promise<T | undefined>;
+  cancel: (reason?: unknown) => void;
 }
 
 export interface RunnableAsyncSignal<I, T, E = unknown>
   extends AsyncSignal<T, E> {
   run: (input: I) => Promise<T | undefined>;
-  reload: () => Promise<T | undefined>;
 }
 
 export type StreamAsyncStatus =

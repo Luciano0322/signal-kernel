@@ -9,18 +9,16 @@ export interface ResourceContext {
   token: number;
 }
 
-export interface ResourceOptions extends FromPromiseOptions {
-  // extends
-}
+export type ResourceOptions<T = unknown> = Omit<FromPromiseOptions<T>, "eager">;
 
-export interface AutoResourceDescriptor<I, T> extends ResourceOptions {
+export interface AutoResourceDescriptor<I, T> extends ResourceOptions<T> {
   trigger?: "auto";
   input?: () => I;
   observe?: () => void;
   run: (input: I, ctx: ResourceContext) => Promise<T>;
 }
 
-export interface ManualResourceDescriptor<I, T> extends ResourceOptions {
+export interface ManualResourceDescriptor<I, T> extends ResourceOptions<T> {
   trigger: "manual";
   run: (input: I, ctx: ResourceContext) => Promise<T>;
   invalidates?: (result: T, input: I) => InvalidationTarget[];
@@ -29,14 +27,14 @@ export interface ManualResourceDescriptor<I, T> extends ResourceOptions {
 export function createResource<S, T, E = unknown>(
   source: () => S,
   fetcher: (s: S, ctx: ResourceContext) => Promise<T>,
-  options?: ResourceOptions
-): [() => T | undefined, AsyncMeta<E>];
+  options?: ResourceOptions<T>
+): [() => T | undefined, AsyncMeta<E, T>];
 export function createResource<T, E = unknown>(
   descriptor: AutoResourceDescriptor<undefined, T>
-): [() => T | undefined, AsyncMeta<E>];
+): [() => T | undefined, AsyncMeta<E, T>];
 export function createResource<I, T, E = unknown>(
   descriptor: AutoResourceDescriptor<I, T>
-): [() => T | undefined, AsyncMeta<E>];
+): [() => T | undefined, AsyncMeta<E, T>];
 export function createResource<I, T, E = unknown>(
   descriptor: ManualResourceDescriptor<I, T>
 ): [() => T | undefined, RunnableAsyncMeta<I, T, E>];
@@ -46,8 +44,8 @@ export function createResource<I, T, E = unknown>(
     | AutoResourceDescriptor<I, T>
     | ManualResourceDescriptor<I, T>,
   fetcher?: (sourceValue: I, ctx: ResourceContext) => Promise<T>,
-  options?: ResourceOptions
-): [() => T | undefined, AsyncMeta<E> | RunnableAsyncMeta<I, T, E>] {
+  options?: ResourceOptions<T>
+): [() => T | undefined, AsyncMeta<E, T> | RunnableAsyncMeta<I, T, E>] {
   if (typeof sourceOrDescriptor === "function") {
     if (!fetcher) {
       throw new TypeError("createResource requires a fetcher function");
@@ -69,14 +67,15 @@ export function createResource<I, T, E = unknown>(
 
 function createAutoResource<I, T, E = unknown>(
   descriptor: AutoResourceDescriptor<I, T>
-): [() => T | undefined, AsyncMeta<E>] {
+): [() => T | undefined, AsyncMeta<E, T>] {
   const { input, observe, run } = descriptor;
   const resourceOptions = toPromiseOptions(descriptor);
 
-  const [value, meta] = asyncSignal<I, T, E>(
-    (sourceValue, ctx) => run(sourceValue, ctx),
-    { ...resourceOptions, eager: false }
-  );
+  const [value, meta] = asyncSignal<I, T, E>({
+    ...resourceOptions,
+    eager: false,
+    run: (sourceValue, ctx) => run(sourceValue, ctx),
+  });
 
   let initialized = false;
 
@@ -105,24 +104,22 @@ function createManualResource<I, T, E = unknown>(
   let latestInput!: I;
   let hasLatestInput = false;
 
-  const [value, meta] = asyncSignal<I, T, E>(
-    (input, ctx) => run(input, ctx),
-    {
-      ...resourceOptions,
-      eager: false,
-      onSuccess(result) {
-        const successResult = result as unknown as T;
+  const [value, meta] = asyncSignal<I, T, E>({
+    ...resourceOptions,
+    eager: false,
+    run: (input, ctx) => run(input, ctx),
+    onSuccess(result) {
+      const successResult = result as unknown as T;
 
-        resourceOptions.onSuccess?.(successResult);
-        if (!hasLatestInput) return;
+      resourceOptions.onSuccess?.(successResult);
+      if (!hasLatestInput) return;
 
-        const targets = invalidates?.(successResult, latestInput) ?? [];
-        for (const target of targets) {
-          target.invalidate();
-        }
-      },
-    }
-  );
+      const targets = invalidates?.(successResult, latestInput) ?? [];
+      for (const target of targets) {
+        target.invalidate();
+      }
+    },
+  });
 
   return [
     value,
@@ -141,9 +138,8 @@ function createManualResource<I, T, E = unknown>(
   ];
 }
 
-function toPromiseOptions(options: ResourceOptions): FromPromiseOptions {
+function toPromiseOptions<T>(options: ResourceOptions<T>): ResourceOptions<T> {
   const {
-    eager,
     onSuccess,
     onError,
     onCancel,
@@ -152,7 +148,6 @@ function toPromiseOptions(options: ResourceOptions): FromPromiseOptions {
   } = options;
 
   return {
-    eager,
     onSuccess,
     onError,
     onCancel,

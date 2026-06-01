@@ -7,31 +7,62 @@ export type FromPromiseEvent =
   | { type: "error"; token: number; ts: number; error: unknown }
   | { type: "cancel"; token: number; ts: number; reason?: unknown };
 
-export interface FromPromiseOptions {
+export interface FromPromiseOptions<T = unknown> {
   eager?: boolean;
-  onSuccess?: <T>(value: T) => void;
+  onSuccess?: (value: T) => void;
   onError?: (error: unknown) => void;
   onCancel?: (reason?: unknown) => void;
   onEvent?: (e: FromPromiseEvent) => void;
   keepPreviousValueOnPending?: boolean;
 }
 
-type PromiseContext = { signal: AbortSignal; token: number };
+export type PromiseContext = { signal: AbortSignal; token: number };
+
+interface FromPromiseDescriptorBase<I, T>
+  extends Omit<FromPromiseOptions<T>, "eager"> {
+  run: (input: I, ctx: PromiseContext) => Promise<T>;
+}
+
+export interface LazyFromPromiseDescriptor<I, T>
+  extends FromPromiseDescriptorBase<I, T> {
+  eager?: false;
+}
+
+export interface EagerFromPromiseDescriptor<I, T>
+  extends FromPromiseDescriptorBase<I, T> {
+  eager: true;
+  initialInput: I;
+}
+
+export type FromPromiseDescriptor<I, T> =
+  | LazyFromPromiseDescriptor<I, T>
+  | EagerFromPromiseDescriptor<I, T>;
 
 export function fromPromise<T, E = unknown>(
-  makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
-  options?: FromPromiseOptions
+  makePromise: (ctx: PromiseContext) => Promise<T>,
+  options?: FromPromiseOptions<T>
 ): AsyncSignal<T, E>;
 export function fromPromise<I, T, E = unknown>(
-  makePromise: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>,
-  options?: FromPromiseOptions
+  descriptor: FromPromiseDescriptor<I, T>
 ): RunnableAsyncSignal<I, T, E>;
 export function fromPromise<I, T, E = unknown>(
-  makePromise:
+  makePromiseOrDescriptor:
     | ((ctx: PromiseContext) => Promise<T>)
-    | ((input: I, ctx: PromiseContext) => Promise<T>),
-  options: FromPromiseOptions = {}
+    | FromPromiseDescriptor<I, T>,
+  optionsArg: FromPromiseOptions<T> = {}
 ): RunnableAsyncSignal<I, T, E> {
+  const isDescriptor = typeof makePromiseOrDescriptor !== "function";
+  const options = isDescriptor
+    ? toPromiseOptions(makePromiseOrDescriptor)
+    : optionsArg;
+  const runProducer = isDescriptor
+    ? makePromiseOrDescriptor.run
+    : (_input: I, ctx: PromiseContext) => makePromiseOrDescriptor(ctx);
+  const initialInput =
+    isDescriptor && "initialInput" in makePromiseOrDescriptor
+      ? makePromiseOrDescriptor.initialInput
+      : undefined;
+
   const { get: value, set: setValue } = signal<T | undefined>(undefined);
   const { get: status, set: setStatus } = signal<AsyncStatus>("idle");
   const { get: error, set: setError } = signal<E | undefined>(undefined);
@@ -48,6 +79,7 @@ export function fromPromise<I, T, E = unknown>(
   let currentToken = 0;
   let currentRunToken = 0;
   let latestInput: I | undefined;
+  let hasLatestInput = false;
 
   let currentController: AbortController | null = null;
 
@@ -55,19 +87,9 @@ export function fromPromise<I, T, E = unknown>(
     options.onEvent?.(e);
   }
 
-  function callProducer(input: I, ctx: PromiseContext) {
-    if (makePromise.length >= 2) {
-      return (makePromise as (input: I, ctx: PromiseContext) => Promise<T>)(
-        input,
-        ctx,
-      );
-    }
-
-    return (makePromise as (ctx: PromiseContext) => Promise<T>)(ctx);
-  }
-
   function run(input: I): Promise<T | undefined> {
     latestInput = input;
+    hasLatestInput = true;
     const myToken = ++currentToken;
     currentRunToken = myToken;
 
@@ -88,7 +110,7 @@ export function fromPromise<I, T, E = unknown>(
 
     let p: Promise<T>;
     try {
-      p = callProducer(input, { signal: controller.signal, token: myToken });
+      p = runProducer(input, { signal: controller.signal, token: myToken });
     } catch (err) {
       if (myToken !== currentToken) return Promise.resolve(undefined);
       batch(() => {
@@ -136,6 +158,7 @@ export function fromPromise<I, T, E = unknown>(
   }
 
   function reload() {
+    if (isDescriptor && !hasLatestInput) return Promise.resolve(undefined);
     return run(latestInput as I);
   }
 
@@ -145,7 +168,7 @@ export function fromPromise<I, T, E = unknown>(
     if (controller.signal.aborted) return;
 
     controller.abort(reason);
-    
+
     batch(() => {
       setStatus("cancelled" as AsyncStatus);
     });
@@ -155,8 +178,8 @@ export function fromPromise<I, T, E = unknown>(
     if (currentController === controller) currentController = null;
   }
 
-  const eager = options.eager ?? true;
-  if (eager) void reload();
+  const eager = options.eager ?? !isDescriptor;
+  if (eager) void run(initialInput as I);
 
   return {
     value,
@@ -165,5 +188,27 @@ export function fromPromise<I, T, E = unknown>(
     run,
     reload,
     cancel,
+  };
+}
+
+function toPromiseOptions<I, T>(
+  descriptor: FromPromiseDescriptor<I, T>,
+): FromPromiseOptions<T> {
+  const {
+    eager,
+    onSuccess,
+    onError,
+    onCancel,
+    onEvent,
+    keepPreviousValueOnPending,
+  } = descriptor;
+
+  return {
+    eager,
+    onSuccess,
+    onError,
+    onCancel,
+    onEvent,
+    keepPreviousValueOnPending,
   };
 }

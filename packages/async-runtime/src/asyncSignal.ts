@@ -1,48 +1,49 @@
 import { fromPromise } from "./fromPromise.js";
-import type { AsyncStatus } from "./types.js";
-import type { FromPromiseOptions } from "./fromPromise.js";
+import type { AsyncStatus, RunnableAsyncSignal } from "./types.js";
+import type {
+  FromPromiseDescriptor,
+  FromPromiseOptions,
+  PromiseContext,
+} from "./fromPromise.js";
 
-export interface AsyncMeta<E = unknown> {
+export interface AsyncMeta<E = unknown, T = unknown> {
   status: () => AsyncStatus;
   error: () => E | undefined;
-  reload: () => void;
+  reload: () => Promise<T | undefined>;
   cancel: (reason?: unknown) => void;
   keepPreviousValueOnPending: boolean;
 }
 
-export interface RunnableAsyncMeta<I, T, E = unknown> extends AsyncMeta<E> {
+export interface RunnableAsyncMeta<I, T, E = unknown> extends AsyncMeta<E, T> {
   run(input: I): Promise<T | undefined>;
-  reload(): Promise<T | undefined>;
 }
 
+export type AsyncSignalDescriptor<I, T> = FromPromiseDescriptor<I, T>;
+
 export function asyncSignal<T, E = unknown>(
-  makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
-  options?: FromPromiseOptions
-): [() => T | undefined, AsyncMeta<E>];
+  makePromise: (ctx: PromiseContext) => Promise<T>,
+  options?: FromPromiseOptions<T>
+): [() => T | undefined, AsyncMeta<E, T>];
 export function asyncSignal<I, T, E = unknown>(
-  makePromise: (
-    input: I,
-    ctx: { signal: AbortSignal; token: number },
-  ) => Promise<T>,
-  options?: FromPromiseOptions,
+  descriptor: AsyncSignalDescriptor<I, T>,
 ): [() => T | undefined, RunnableAsyncMeta<I, T, E>];
 export function asyncSignal<I, T, E = unknown>(
-  makePromise:
-    | ((ctx: { signal: AbortSignal; token: number }) => Promise<T>)
-    | ((
-        input: I,
-        ctx: { signal: AbortSignal; token: number },
-      ) => Promise<T>),
-  options?: FromPromiseOptions
+  makePromiseOrDescriptor:
+    | ((ctx: PromiseContext) => Promise<T>)
+    | AsyncSignalDescriptor<I, T>,
+  options?: FromPromiseOptions<T>
 ): [() => T | undefined, RunnableAsyncMeta<I, T, E>] {
-  const sig = fromPromise<I, T, E>(
-    makePromise as (
-      input: I,
-      ctx: { signal: AbortSignal; token: number },
-    ) => Promise<T>,
-    options,
-  );
-  const keepPrev = options?.keepPreviousValueOnPending ?? true;
+  const isDescriptor = typeof makePromiseOrDescriptor !== "function";
+  const sig = isDescriptor
+    ? fromPromise<I, T, E>(makePromiseOrDescriptor)
+    : (fromPromise<T, E>(
+        makePromiseOrDescriptor,
+        options,
+      ) as RunnableAsyncSignal<I, T, E>);
+  const keepPrev =
+    (isDescriptor
+      ? makePromiseOrDescriptor.keepPreviousValueOnPending
+      : options?.keepPreviousValueOnPending) ?? true;
 
   return [
     sig.value,
