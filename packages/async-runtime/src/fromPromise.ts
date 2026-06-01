@@ -1,5 +1,5 @@
 import { signal, batch } from "@signal-kernel/core";
-import type { AsyncSignal, AsyncStatus } from "./types";
+import type { AsyncSignal, AsyncStatus, RunnableAsyncSignal } from "./types";
 
 export type FromPromiseEvent =
   | { type: "start"; token: number; ts: number }
@@ -16,10 +16,22 @@ export interface FromPromiseOptions {
   keepPreviousValueOnPending?: boolean;
 }
 
+type PromiseContext = { signal: AbortSignal; token: number };
+
 export function fromPromise<T, E = unknown>(
   makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
+  options?: FromPromiseOptions
+): AsyncSignal<T, E>;
+export function fromPromise<I, T, E = unknown>(
+  makePromise: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>,
+  options?: FromPromiseOptions
+): RunnableAsyncSignal<I, T, E>;
+export function fromPromise<I, T, E = unknown>(
+  makePromise:
+    | ((ctx: PromiseContext) => Promise<T>)
+    | ((input: I, ctx: PromiseContext) => Promise<T>),
   options: FromPromiseOptions = {}
-): AsyncSignal<T, E> {
+): RunnableAsyncSignal<I, T, E> {
   const { get: value, set: setValue } = signal<T | undefined>(undefined);
   const { get: status, set: setStatus } = signal<AsyncStatus>("idle");
   const { get: error, set: setError } = signal<E | undefined>(undefined);
@@ -35,6 +47,7 @@ export function fromPromise<T, E = unknown>(
 
   let currentToken = 0;
   let currentRunToken = 0;
+  let latestInput: I | undefined;
 
   let currentController: AbortController | null = null;
 
@@ -42,7 +55,19 @@ export function fromPromise<T, E = unknown>(
     options.onEvent?.(e);
   }
 
-  function run() {
+  function callProducer(input: I, ctx: PromiseContext) {
+    if (makePromise.length >= 2) {
+      return (makePromise as (input: I, ctx: PromiseContext) => Promise<T>)(
+        input,
+        ctx,
+      );
+    }
+
+    return (makePromise as (ctx: PromiseContext) => Promise<T>)(ctx);
+  }
+
+  function run(input: I): Promise<T | undefined> {
+    latestInput = input;
     const myToken = ++currentToken;
     currentRunToken = myToken;
 
@@ -63,9 +88,9 @@ export function fromPromise<T, E = unknown>(
 
     let p: Promise<T>;
     try {
-      p = makePromise({ signal: controller.signal, token: myToken });
+      p = callProducer(input, { signal: controller.signal, token: myToken });
     } catch (err) {
-      if (myToken !== currentToken) return;
+      if (myToken !== currentToken) return Promise.resolve(undefined);
       batch(() => {
         setError(err as E);
         setStatus("error");
@@ -73,13 +98,13 @@ export function fromPromise<T, E = unknown>(
       emit({ type: "error", token: myToken, ts: Date.now(), error: err });
       options.onError?.(err);
       if (currentController === controller) currentController = null;
-      return;
+      return Promise.resolve(undefined);
     }
 
-    p.then(
+    return p.then(
       (result) => {
-        if (myToken !== currentToken) return;
-        if (controller.signal.aborted) return;
+        if (myToken !== currentToken) return undefined;
+        if (controller.signal.aborted) return undefined;
 
         batch(() => {
           setValue(result);
@@ -89,12 +114,13 @@ export function fromPromise<T, E = unknown>(
         emit({ type: "success", token: myToken, ts: Date.now() });
         options.onSuccess?.(result);
         if (currentController === controller) currentController = null;
+        return result;
       },
       (err) => {
-        if (myToken !== currentToken) return;
+        if (myToken !== currentToken) return undefined;
         if (controller.signal.aborted || isAbortError(err)) {
           if (currentController === controller) currentController = null;
-          return;
+          return undefined;
         }
         batch(() => {
           setError(err as E);
@@ -104,8 +130,13 @@ export function fromPromise<T, E = unknown>(
         emit({ type: "error", token: myToken, ts: Date.now(), error: err });
         options.onError?.(err);
         if (currentController === controller) currentController = null;
+        return undefined;
       }
     );
+  }
+
+  function reload() {
+    return run(latestInput as I);
   }
 
   function cancel(reason?: unknown) {
@@ -125,13 +156,14 @@ export function fromPromise<T, E = unknown>(
   }
 
   const eager = options.eager ?? true;
-  if (eager) run();
+  if (eager) void reload();
 
   return {
     value,
     status,
     error,
-    reload: run,
+    run,
+    reload,
     cancel,
   };
 }

@@ -19,8 +19,8 @@ export function createResource<S, T, E = unknown>(
 ): [() => T | undefined, AsyncMeta<E>] {
   let currentSource!: S;
 
-  const [value, meta] = asyncSignal<T, E>(
-    (ctx) => fetcher(currentSource, ctx),
+  const [value, meta] = asyncSignal<S, T, E>(
+    (sourceValue, ctx) => fetcher(sourceValue, ctx),
     { ...(options ?? {}), eager: false }
   );
 
@@ -34,7 +34,7 @@ export function createResource<S, T, E = unknown>(
       meta.cancel("source-changed");
     }
 
-    meta.reload();
+    void meta.run(currentSource);
     initialized = true;
   });
 

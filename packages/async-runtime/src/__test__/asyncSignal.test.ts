@@ -4,6 +4,27 @@ import { asyncSignal } from "../asyncSignal.js";
 const tick = () => Promise.resolve();
 
 describe("asyncSignal", () => {
+  it("exposes run(input) for input-based async work", async () => {
+    const makePromise = vi.fn(
+      (input: string, _ctx: { signal: AbortSignal; token: number }) =>
+        Promise.resolve(input.toUpperCase()),
+    );
+
+    const [value, meta] = asyncSignal<string, string>(makePromise, {
+      eager: false,
+    });
+
+    const result = await meta.run("alice");
+
+    expect(result).toBe("ALICE");
+    expect(value()).toBe("ALICE");
+    expect(meta.status()).toBe("success");
+    expect(makePromise).toHaveBeenCalledWith(
+      "alice",
+      expect.objectContaining({ signal: expect.any(AbortSignal), token: 1 }),
+    );
+  });
+
   it("starts in pending state by default and exposes metadata", () => {
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>
