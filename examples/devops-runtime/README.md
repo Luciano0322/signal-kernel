@@ -35,10 +35,10 @@ flowchart TD
   end
 
   subgraph Resources["Async runtime resources"]
-    ciStatus["ciStatus<br/>createResource(selectedCommit)"]
-    artifactStatus["artifactStatus<br/>createResource(selectedCommit)"]
-    deploymentStatus["deploymentStatus<br/>createResource(deploymentRequest)"]
-    healthEvents["healthEvents<br/>createStreamResource(selectedCommit)"]
+    ciStatus["ciStatus<br/>createResource({ input: selectedCommit })"]
+    artifactStatus["artifactStatus<br/>createResource({ input: selectedCommit })"]
+    deploymentStatus["deploymentStatus<br/>createResource({ input: deploymentRequest })"]
+    healthEvents["healthEvents<br/>createStreamResource({ input: selectedCommit })"]
   end
 
   subgraph Computed["Derived decisions"]
