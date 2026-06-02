@@ -204,8 +204,8 @@ Purpose: read a `createResource()` tuple in React while keeping async semantics 
 
 ```ts
 function useResource<T, E>(
-  resource: [() => T | undefined, AsyncMeta<E>]
-): [T | undefined, AsyncMeta<E>];
+  resource: [() => T | undefined, AsyncMeta<E, T>]
+): [T | undefined, AsyncMeta<E, T>];
 ```
 
 Example:

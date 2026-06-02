@@ -117,13 +117,11 @@ Suggested shape:
 ```ts
 const query = signal("");
 
-const searchResource = createResource(
-  query.get,
-  (currentQuery, ctx) => fakeSearchApi(currentQuery, ctx),
-  {
-    keepPreviousValueOnPending: true,
-  }
-);
+const searchResource = createResource({
+  input: query.get,
+  run: (currentQuery, ctx) => fakeSearchApi(currentQuery, ctx),
+  keepPreviousValueOnPending: true,
+});
 ```
 
 React and Vue should consume this graph through adapters. They should not create separate async policies.

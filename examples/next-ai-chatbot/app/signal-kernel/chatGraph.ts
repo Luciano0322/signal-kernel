@@ -56,9 +56,14 @@ export function createChatGraph() {
     });
   }
 
-  const stream = createStreamResource<ChatMessage[] | null, string, string, Error>(
-    () => request.get(),
-    async (requestMessages, ctx) => {
+  const stream = createStreamResource<
+    ChatMessage[] | null,
+    string,
+    string,
+    Error
+  >({
+    input: request.get,
+    stream: async (requestMessages, ctx) => {
       if (!requestMessages) {
         ctx.done("");
         return;
@@ -92,19 +97,17 @@ export function createChatGraph() {
 
       ctx.done(content);
     },
-    {
-      initialValue: "",
-      reduce: (current, chunk) => `${current ?? ""}${chunk}`,
-      onCancel: "keep-partial",
-      onError: "keep-partial",
-      onSuccess: (content) => {
-        commitAssistant(content, "done");
-      },
-      onErrorEffect: () => {
-        commitAssistant(readStreamText() || "Something went wrong.", "error");
-      },
+    initialValue: "",
+    reduce: (current, chunk) => `${current ?? ""}${chunk}`,
+    onCancel: "keep-partial",
+    onError: "keep-partial",
+    onSuccess: (content) => {
+      commitAssistant(content, "done");
     },
-  );
+    onErrorEffect: () => {
+      commitAssistant(readStreamText() || "Something went wrong.", "error");
+    },
+  });
 
   const [streamText, streamMeta] = stream;
   readStreamText = () => streamText() ?? "";

@@ -86,13 +86,13 @@ export function createMemoryGraph(options: CreateMemoryGraphOptions) {
     string,
     string,
     Error
-  >(
-    () => ({
+  >({
+    input: () => ({
       memoryPrompt: context.renderedPrompt.get(),
       recallStatus: context.status.get(),
       userMessage: currentUserMessage.get().trim(),
     }),
-    async ({ memoryPrompt, recallStatus, userMessage }, ctx) => {
+    stream: async ({ memoryPrompt, recallStatus, userMessage }, ctx) => {
       if (!userMessage || recallStatus !== "success") {
         ctx.done("");
         return;
@@ -151,13 +151,11 @@ export function createMemoryGraph(options: CreateMemoryGraphOptions) {
       });
       void recordSnapshot("after-stream", turnId);
     },
-    {
-      initialValue: "",
-      onCancel: "keep-partial",
-      onError: "keep-partial",
-      reduce: (current, chunk) => `${current ?? ""}${chunk}`,
-    },
-  );
+    initialValue: "",
+    onCancel: "keep-partial",
+    onError: "keep-partial",
+    reduce: (current, chunk) => `${current ?? ""}${chunk}`,
+  });
 
   function setCurrentUserMessage(message: string) {
     const turnId = createTurn(message.trim());

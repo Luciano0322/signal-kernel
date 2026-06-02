@@ -1,28 +1,36 @@
-import type { AsyncMeta } from "@signal-kernel/async-runtime";
+import type { AsyncMeta, AsyncStatus } from "@signal-kernel/async-runtime";
 import { useCallback } from "react";
 import { useReactive } from "./useReactive.js";
 
-export type ResourceTuple<T, E = unknown> = [
+export type ResourceTuple<
+  T,
+  M extends AsyncMeta<unknown, T> = AsyncMeta<unknown, T>,
+> = [
   value: () => T | undefined,
-  meta: AsyncMeta<E>,
+  meta: M,
 ];
 
-type ResourceSnapshot<T, E = unknown> = {
+type ResourceError<M, T> = M extends AsyncMeta<infer E, T> ? E : unknown;
+
+type ResourceSnapshot<T, M extends AsyncMeta<unknown, T>> = {
   value: T | undefined;
-  status: ReturnType<AsyncMeta<E>["status"]>;
-  error: ReturnType<AsyncMeta<E>["error"]>;
+  status: AsyncStatus;
+  error: ResourceError<M, T> | undefined;
 };
 
-export function useResource<T, E = unknown>(
-  resource: ResourceTuple<T, E>,
-): [T | undefined, AsyncMeta<E>] {
+export function useResource<
+  T,
+  M extends AsyncMeta<unknown, T> = AsyncMeta<unknown, T>,
+>(
+  resource: ResourceTuple<T, M>,
+): [T | undefined, M] {
   const [value, meta] = resource;
 
   const read = useCallback(
-    (): ResourceSnapshot<T, E> => ({
+    (): ResourceSnapshot<T, M> => ({
       value: value(),
       status: meta.status(),
-      error: meta.error(),
+      error: meta.error() as ResourceError<M, T> | undefined,
     }),
     [value, meta],
   );

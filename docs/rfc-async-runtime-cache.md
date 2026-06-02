@@ -347,8 +347,10 @@ than extending positional arguments.
 Auto resources rerun when their reactive dependencies change.
 
 ```ts
+export type ResourceOptions<T = unknown> = Omit<FromPromiseOptions<T>, "eager">
+
 export interface AutoResourceDescriptor<I, T, E = unknown>
-  extends ResourceOptions {
+  extends ResourceOptions<T> {
   trigger?: "auto"
 
   input?: () => I
@@ -426,7 +428,7 @@ Manual resources run only when explicitly called.
 
 ```ts
 export interface ManualResourceDescriptor<I, T, E = unknown>
-  extends ResourceOptions {
+  extends ResourceOptions<T> {
   trigger: "manual"
 
   run: (input: I, ctx: ResourceContext) => Promise<T>
@@ -477,8 +479,9 @@ Recommended type:
 
 ```ts
 export interface RunnableAsyncMeta<I, T, E = unknown>
-  extends AsyncMeta<E> {
+  extends AsyncMeta<E, T> {
   run(input: I): Promise<T | undefined>
+  reload(): Promise<T | undefined>
 }
 ```
 
@@ -512,15 +515,27 @@ const [value, meta] = asyncSignal<T, E>(
 Preferred model:
 
 ```ts
-const [value, meta] = asyncSignal<I, T, E>(
-  (input, ctx) => run(input, ctx),
-  { eager: false }
-)
+const [value, meta] = asyncSignal<I, T, E>({
+  run: (input, ctx) => run(input, ctx),
+})
 
 meta.run(input)
 ```
 
 This removes the need for mutable closure state and makes manual resources natural.
+The input-based lower-level API should use descriptor form instead of inferring
+producer shape from function arity.
+
+The preferred descriptor form is lazy by default. If a lower-level descriptor
+must run immediately, it should require an explicit `initialInput`:
+
+```ts
+const [value, meta] = asyncSignal<I, T, E>({
+  eager: true,
+  initialInput,
+  run: (input, ctx) => run(input, ctx),
+})
+```
 
 For auto resources, `createResource` owns the latest input and can call
 `meta.run(latestInput)` when `input()` or `observe()` dependencies change.
@@ -528,9 +543,9 @@ For auto resources, `createResource` owns the latest input and can call
 For manual resources, user code calls `meta.run(input)` directly.
 
 `reload()` can remain on `AsyncMeta` for auto resources, where it reruns the
-latest known input. For manual resources, `reload()` should either rerun the
-latest manual input or be documented as unavailable until a first `run(input)`
-has established one. The implementation should choose one behavior and test it.
+latest known input. For manual resources, `reload()` reruns the latest manual
+input once a first `run(input)` has established one. Before any input exists,
+manual `reload()` is a no-op.
 
 ## Backward Compatibility
 

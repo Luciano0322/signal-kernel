@@ -4,6 +4,103 @@ import { fromPromise } from "../fromPromise.js";
 const tick = () => Promise.resolve();
 
 describe("fromPromise", () => {
+  it("runs with explicit input and returns the latest successful result", async () => {
+    const makePromise = vi.fn(
+      (input: string, _ctx: { signal: AbortSignal; token: number }) =>
+        Promise.resolve(input.length),
+    );
+
+    const asyncSig = fromPromise<string, number>({ run: makePromise });
+
+    expect(makePromise).not.toHaveBeenCalled();
+    expect(asyncSig.status()).toBe("idle");
+
+    const result = await asyncSig.run("alice");
+    await tick();
+
+    expect(result).toBe(5);
+    expect(makePromise).toHaveBeenCalledWith(
+      "alice",
+      expect.objectContaining({ signal: expect.any(AbortSignal), token: 1 }),
+    );
+    expect(asyncSig.status()).toBe("success");
+    expect(asyncSig.value()).toBe(5);
+  });
+
+  it("descriptor reload is a no-op before an input is established", async () => {
+    const makePromise = vi.fn(
+      (input: string, _ctx: { signal: AbortSignal; token: number }) =>
+        Promise.resolve(input.length),
+    );
+
+    const asyncSig = fromPromise<string, number>({ run: makePromise });
+
+    await expect(asyncSig.reload()).resolves.toBeUndefined();
+
+    expect(makePromise).not.toHaveBeenCalled();
+    expect(asyncSig.status()).toBe("idle");
+  });
+
+  it("descriptor eager execution requires and uses an initial input", async () => {
+    const makePromise = vi.fn(
+      (input: string, _ctx: { signal: AbortSignal; token: number }) =>
+        Promise.resolve(input.length),
+    );
+
+    const asyncSig = fromPromise<string, number>({
+      eager: true,
+      initialInput: "alice",
+      run: makePromise,
+    });
+
+    expect(asyncSig.status()).toBe("pending");
+    expect(makePromise).toHaveBeenCalledWith(
+      "alice",
+      expect.objectContaining({ signal: expect.any(AbortSignal), token: 1 }),
+    );
+
+    await tick();
+
+    expect(asyncSig.status()).toBe("success");
+    expect(asyncSig.value()).toBe(5);
+  });
+
+  it("reload reruns the latest explicit input", async () => {
+    const makePromise = vi.fn(
+      (input: string, _ctx: { signal: AbortSignal; token: number }) =>
+        Promise.resolve(`${input}:${Date.now()}`),
+    );
+
+    const asyncSig = fromPromise<string, string>({ run: makePromise });
+
+    await asyncSig.run("user-1");
+    await asyncSig.reload();
+
+    expect(makePromise).toHaveBeenCalledTimes(2);
+    expect(makePromise.mock.calls[1]![0]).toBe("user-1");
+  });
+
+  it("resolves run() with undefined when the producer fails", async () => {
+    const error = new Error("boom");
+    const onError = vi.fn();
+    const makePromise = vi.fn(
+      (_input: string, _ctx: { signal: AbortSignal; token: number }) =>
+        Promise.reject(error),
+    );
+
+    const asyncSig = fromPromise<string, number, Error>({
+      run: makePromise,
+      onError,
+    });
+
+    const result = await asyncSig.run("bad-input");
+
+    expect(result).toBeUndefined();
+    expect(asyncSig.status()).toBe("error");
+    expect(asyncSig.error()).toBe(error);
+    expect(onError).toHaveBeenCalledWith(error);
+  });
+
   it("starts in pending state by default and invokes the producer immediately", () => {
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>

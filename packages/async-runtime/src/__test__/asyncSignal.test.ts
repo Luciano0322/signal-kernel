@@ -4,6 +4,52 @@ import { asyncSignal } from "../asyncSignal.js";
 const tick = () => Promise.resolve();
 
 describe("asyncSignal", () => {
+  it("exposes run(input) for input-based async work", async () => {
+    const makePromise = vi.fn(
+      (input: string, _ctx: { signal: AbortSignal; token: number }) =>
+        Promise.resolve(input.toUpperCase()),
+    );
+
+    const [value, meta] = asyncSignal<string, string>({ run: makePromise });
+
+    expect(makePromise).not.toHaveBeenCalled();
+    expect(meta.status()).toBe("idle");
+
+    const result = await meta.run("alice");
+
+    expect(result).toBe("ALICE");
+    expect(value()).toBe("ALICE");
+    expect(meta.status()).toBe("success");
+    expect(makePromise).toHaveBeenCalledWith(
+      "alice",
+      expect.objectContaining({ signal: expect.any(AbortSignal), token: 1 }),
+    );
+  });
+
+  it("descriptor eager execution uses an initial input", async () => {
+    const makePromise = vi.fn(
+      (input: string, _ctx: { signal: AbortSignal; token: number }) =>
+        Promise.resolve(input.toUpperCase()),
+    );
+
+    const [value, meta] = asyncSignal<string, string>({
+      eager: true,
+      initialInput: "alice",
+      run: makePromise,
+    });
+
+    expect(meta.status()).toBe("pending");
+    expect(makePromise).toHaveBeenCalledWith(
+      "alice",
+      expect.objectContaining({ signal: expect.any(AbortSignal), token: 1 }),
+    );
+
+    await tick();
+
+    expect(meta.status()).toBe("success");
+    expect(value()).toBe("ALICE");
+  });
+
   it("starts in pending state by default and exposes metadata", () => {
     const makePromise = vi.fn(
       (_ctx: { signal: AbortSignal; token: number }) =>

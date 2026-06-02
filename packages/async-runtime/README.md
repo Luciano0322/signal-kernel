@@ -9,12 +9,13 @@
 
 `@signal-kernel/async-runtime` provides a set of high-level utilities for managing asynchronous state using the fine-grained reactive engine from `@signal-kernel/core`.
 
-It exposes four primary capabilities:
+It exposes five primary capabilities:
 
 * `createResource()` – A source-driven async state primitive similar to Solid's `createResource`, but built on a deterministic scheduler and cancellation model.
 * `createStreamResource()` – A source-driven streaming async primitive for progressive visible state with stable committed value semantics.
 * `fromPromise()` – Converts a cancellable Promise producer into a reactive async state.
 * `asyncSignal()` – A convenient wrapper exposing both value and metadata (status, error, reload).
+* `createRevision()` / `createKeyedRevision()` - Signal-backed invalidation sources for declarative async consistency.
 
 This package does not depend on any frontend framework.
 It can be used in browser apps, server runtimes, CLI tools, or any JS environment.
@@ -63,45 +64,101 @@ interface ResourceContext {
   token: number;
 }
 
+type ResourceOptions<T = unknown> = Omit<FromPromiseOptions<T>, "eager">;
+
+createResource<I, T, E = unknown>({
+  input?: () => I;
+  observe?: () => void;
+  run: (input: I, ctx: ResourceContext) => Promise<T>;
+  trigger?: "auto";
+} & ResourceOptions<T>): [() => T | undefined, AsyncMeta<E, T>]
+
+createResource<I, T, E = unknown>({
+  trigger: "manual";
+  run: (input: I, ctx: ResourceContext) => Promise<T>;
+  invalidates?: (result: T, input: I) => InvalidationTarget[];
+} & ResourceOptions<T>): [() => T | undefined, RunnableAsyncMeta<I, T, E>]
+
+// v0.x compatibility shorthand
 createResource<S, T, E = unknown>(
   source: () => S,
   fetcher: (sourceValue: S, ctx: ResourceContext) => Promise<T>,
-  options?: ResourceOptions
-): [() => T | undefined, AsyncMeta<E>]
+  options?: ResourceOptions<T>
+): [() => T | undefined, AsyncMeta<E, T>]
 ```
 
 ### How it works
 
-* The `source()` function is tracked via `createEffect()`.
-* When `source()` changes:
+* New code should prefer object form with `input`, `observe`, and `run`.
+* `input()` is tracked via `createEffect()` and its return value is passed to `run(input, ctx)`.
+* `observe()` may track additional invalidation dependencies without passing them to `run()`.
+* When `input()` or `observe()` dependencies change:
 
   * The previous async work is canceled (`meta.cancel("source-changed")`).
-  * A new fetch begins (`meta.reload()`).
+  * A new fetch begins with the latest input.
 * On first run, it automatically loads initial data.
+* Manual resources run only when `meta.run(input)` is called.
+* Manual resource `reload()` reruns the most recent `run(input)` input. Before any input exists, it is a no-op.
+* Manual resource `invalidates` targets run only after a successful operation.
 * Values and metadata update reactively.
+
+`eager` is intentionally not part of `ResourceOptions`. Auto resources are driven by tracked graph dependencies; manual resources are driven by `meta.run(input)`.
+
+The older positional `createResource(source, fetcher, options?)` shape remains a v0.x compatibility shorthand, but object form is the primary documented API because it scales to `input`, `observe`, manual execution, and declarative invalidation.
 
 ### Example
 
 ```ts
 const id = signal(1);
 
-const [user, meta] = createResource(
-  id.get,
-  async (id, ctx) => {
+const [user, meta] = createResource({
+  input: id.get,
+  run: async (id, ctx) => {
     const res = await fetch(`/api/user/${id}`, {
       signal: ctx.signal,
     });
     return res.json();
-  }
-);
+  },
+});
 
 createEffect(() => {
   console.log("User:", user());
   console.log("Status:", meta.status());
 });
 
-// Changing source triggers new fetch
+// Changing input triggers new fetch
 id.set(2);
+```
+
+### Declarative invalidation
+
+```ts
+const usersRevision = createRevision();
+
+const [users] = createResource({
+  observe: () => {
+    usersRevision.get();
+  },
+  run: async (_input, ctx) => {
+    const res = await fetch("/api/users", { signal: ctx.signal });
+    return res.json();
+  },
+});
+
+const [, updateUserMeta] = createResource({
+  trigger: "manual",
+  run: async (payload: { id: string; name: string }, ctx) => {
+    const res = await fetch(`/api/users/${payload.id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+      signal: ctx.signal,
+    });
+    return res.json();
+  },
+  invalidates: () => [usersRevision],
+});
+
+await updateUserMeta.run({ id: "u1", name: "Alice" });
 ```
 
 ### Key features
@@ -109,6 +166,7 @@ id.set(2);
 * Cancel old requests automatically.
 * Works perfectly with fine-grained reactivity in the core runtime.
 * Fully deterministic, thanks to the two-phase scheduler.
+* Supports declarative invalidation without a global query cache.
 
 ---
 
@@ -153,6 +211,19 @@ interface StreamContext<TChunk, TValue> {
   isCancelled(): boolean;
 }
 
+createStreamResource<I, TChunk, TValue, E = unknown>({
+  input?: () => I;
+  observe?: () => void;
+  stream: (
+    input: I,
+    ctx: StreamContext<TChunk, TValue>
+  ) => Promise<void> | void;
+} & StreamResourceOptions<TChunk, TValue, E>): [
+  () => TValue | undefined,
+  StreamAsyncMeta<E, TValue>
+]
+
+// v0.x compatibility shorthand
 createStreamResource<S, TChunk, TValue, E = unknown>(
   source: () => S,
   streamer: (
@@ -172,6 +243,8 @@ A stream resource separates **visible accumulated value** from **stable committe
 * `status()` can be `idle`, `pending`, `streaming`, `success`, `error`, or `cancelled`
 
 This allows streaming UIs to expose partial output while still preserving a stable-state model for higher-level logic.
+
+New stream code should prefer object form with `input`, `observe`, and `stream`. The older positional `createStreamResource(source, streamer, options?)` shape remains a v0.x compatibility shorthand.
 
 ### Interruption policy
 
@@ -193,9 +266,9 @@ For example:
 ```ts
 const prompt = signal("Explain signals simply");
 
-const [text, meta] = createStreamResource(
-  prompt.get,
-  async (input, ctx) => {
+const [text, meta] = createStreamResource({
+  input: prompt.get,
+  stream: async (input, ctx) => {
     const chunks = ["Signals ", "track ", "dependencies."];
     for (const chunk of chunks) {
       if (ctx.isCancelled()) return;
@@ -204,13 +277,11 @@ const [text, meta] = createStreamResource(
     }
     ctx.done();
   },
-  {
-    initialValue: "",
-    reduce: (current = "", chunk) => current + chunk,
-    onCancel: "keep-partial",
-    onError: "rollback",
-  }
-);
+  initialValue: "",
+  reduce: (current = "", chunk) => current + chunk,
+  onCancel: "keep-partial",
+  onError: "rollback",
+});
 
 createEffect(() => {
   console.log("Text:", text());
@@ -223,6 +294,7 @@ createEffect(() => {
 
 * Supports progressive visible async state.
 * Separates current visible value from last committed stable value.
+* Tracks `input()` and `observe()` dependencies for stream resubscription.
 * Allows explicit cancellation/error policies (`keep-partial`, `rollback`, `clear`).
 * Fits naturally into the same deterministic runtime model as `createResource()`.
 
@@ -239,8 +311,23 @@ createEffect(() => {
 ```ts
 fromPromise<T, E = unknown>(
   makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
-  options?: FromPromiseOptions
+  options?: FromPromiseOptions<T>
 ): AsyncSignal<T, E>
+
+fromPromise<I, T, E = unknown>({
+  run: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>;
+  keepPreviousValueOnPending?: boolean;
+  onSuccess?: (value: T) => void;
+  onError?: (error: unknown) => void;
+  onCancel?: (reason?: unknown) => void;
+}): RunnableAsyncSignal<I, T, E>
+
+fromPromise<I, T, E = unknown>({
+  eager: true;
+  initialInput: I;
+  run: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>;
+  keepPreviousValueOnPending?: boolean;
+}): RunnableAsyncSignal<I, T, E>
 ```
 
 ### What it does
@@ -251,6 +338,7 @@ fromPromise<T, E = unknown>(
 * `status(): "idle" | "pending" | "success" | "error" | "cancelled"`
 * `error(): E | undefined`
 * `reload()`
+* `run(input)` when using the descriptor form
 * `cancel(reason?)`
 
 It internally:
@@ -277,6 +365,23 @@ createEffect(() => {
 });
 ```
 
+Input-based work should use descriptor form so the runtime does not need to infer the producer shape:
+
+```ts
+const user = fromPromise({
+  run: async (id: string, ctx) => {
+    const res = await fetch(`/api/user/${id}`, {
+      signal: ctx.signal,
+    });
+    return res.json();
+  },
+});
+
+await user.run("u1");
+```
+
+Function form is eager by default because it has no external input to wait for. Descriptor form is lazy by default because the runtime needs `run(input)` to establish the first input. If a descriptor should run immediately, pass both `eager: true` and `initialInput`.
+
 ---
 
 ---
@@ -290,8 +395,20 @@ createEffect(() => {
 ```ts
 asyncSignal<T, E = unknown>(
   makePromise: (ctx: { signal: AbortSignal; token: number }) => Promise<T>,
-  options?: FromPromiseOptions
-): [() => T | undefined, AsyncMeta<E>]
+  options?: FromPromiseOptions<T>
+): [() => T | undefined, AsyncMeta<E, T>]
+
+asyncSignal<I, T, E = unknown>({
+  run: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>;
+  keepPreviousValueOnPending?: boolean;
+}): [() => T | undefined, RunnableAsyncMeta<I, T, E>]
+
+asyncSignal<I, T, E = unknown>({
+  eager: true;
+  initialInput: I;
+  run: (input: I, ctx: { signal: AbortSignal; token: number }) => Promise<T>;
+  keepPreviousValueOnPending?: boolean;
+}): [() => T | undefined, RunnableAsyncMeta<I, T, E>]
 ```
 
 ### What it provides
@@ -323,6 +440,16 @@ createEffect(() => {
 });
 ```
 
+For explicit input-based execution:
+
+```ts
+const [user, meta] = asyncSignal({
+  run: (id: string, ctx) => fetchUser(id, { signal: ctx.signal }),
+});
+
+await meta.run("u1");
+```
+
 ---
 
 ---
@@ -335,13 +462,22 @@ The package exports the async-related types:
 
 * `AsyncStatus`
 * `AsyncSignal<T, E>`
-* `AsyncMeta<E>`
-* `FromPromiseOptions`
-* `ResourceOptions`
+* `AsyncMeta<E, T = unknown>`
+* `RunnableAsyncMeta<I, T, E>`
+* `FromPromiseOptions<T = unknown>`
+* `FromPromiseDescriptor<I, T>`
+* `AsyncSignalDescriptor<I, T>`
+* `ResourceOptions<T = unknown>`
+* `AutoResourceDescriptor<I, T>`
+* `ManualResourceDescriptor<I, T>`
+* `Revision`
+* `KeyedRevision<K>`
+* `InvalidationTarget`
 * `StreamAsyncStatus`
 * `StreamInterruptionPolicy`
 * `StreamContext<TChunk, TValue>`
 * `StreamResourceOptions<TChunk, TValue, E>`
+* `StreamResourceDescriptor<I, TChunk, TValue, E>`
 * `StreamAsyncMeta<E, TValue>`
 
 These allow you to annotate higher-level abstractions or build your own async primitives.

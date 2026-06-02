@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { batch, signal } from "@signal-kernel/core";
+import { describe, expect, it, vi } from "vitest";
 import { createStreamResource } from "../createStreamResource.js";
+import { createRevision } from "../revision.js";
 import type { StreamContext } from "../types";
 import {
   createDeferred,
@@ -335,5 +337,127 @@ describe("createStreamResource", () => {
     ctxB?.emit("new");
     expect(meta.status()).toBe("streaming");
     expect(value()).toBe("new");
+  });
+
+  it("supports object-form stream resources with tracked input", async () => {
+    const source = signal("a");
+    const contexts = new Map<string, StreamContext<string, string>>();
+    const stream = vi.fn((input: string, ctx: StreamContext<string, string>) => {
+      contexts.set(input, ctx);
+    });
+
+    const [value, meta] = createStreamResource({
+      input: source.get,
+      stream,
+      initialValue: "",
+      reduce: (current = "", chunk: string) => current + chunk,
+    });
+
+    expect(meta.status()).toBe("pending");
+
+    await flushMicrotasks();
+
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(stream).toHaveBeenLastCalledWith("a", expect.any(Object));
+
+    contexts.get("a")?.emit("old");
+    expect(value()).toBe("old");
+
+    source.set("b");
+    await flushMicrotasks();
+
+    expect(stream).toHaveBeenCalledTimes(2);
+    expect(stream).toHaveBeenLastCalledWith("b", expect.any(Object));
+    expect(value()).toBe("");
+
+    contexts.get("a")?.emit("stale");
+    expect(value()).toBe("");
+
+    contexts.get("b")?.emit("new");
+    expect(value()).toBe("new");
+  });
+
+  it("tracks object-form observe dependencies without passing them to stream", async () => {
+    const revision = createRevision();
+    const stream = vi.fn(
+      (_input: string, _ctx: StreamContext<string, string>) => undefined,
+    );
+
+    createStreamResource({
+      input: () => "room-a",
+      observe: () => {
+        revision.get();
+      },
+      stream,
+      initialValue: "",
+      reduce: (current = "", chunk: string) => current + chunk,
+    });
+
+    await flushMicrotasks();
+
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(stream).toHaveBeenLastCalledWith("room-a", expect.any(Object));
+
+    revision.invalidate();
+    await flushMicrotasks();
+
+    expect(stream).toHaveBeenCalledTimes(2);
+    expect(stream).toHaveBeenLastCalledWith("room-a", expect.any(Object));
+  });
+
+  it("does not duplicate stream sessions when input and observe change in the same batch", async () => {
+    const source = signal("a");
+    const revision = createRevision();
+    const stream = vi.fn(
+      (_input: string, _ctx: StreamContext<string, string>) => undefined,
+    );
+
+    createStreamResource({
+      input: source.get,
+      observe: () => {
+        revision.get();
+      },
+      stream,
+      initialValue: "",
+      reduce: (current = "", chunk: string) => current + chunk,
+    });
+
+    await flushMicrotasks();
+
+    expect(stream).toHaveBeenCalledTimes(1);
+
+    batch(() => {
+      source.set("b");
+      revision.invalidate();
+    });
+
+    await flushMicrotasks();
+
+    expect(stream).toHaveBeenCalledTimes(2);
+    expect(stream).toHaveBeenLastCalledWith("b", expect.any(Object));
+  });
+
+  it("supports parameterless object-form stream resources", async () => {
+    const stream = vi.fn(
+      (input: undefined, ctx: StreamContext<string, string>) => {
+        expect(input).toBeUndefined();
+        ctx.emit("chunk");
+        ctx.done();
+      },
+    );
+
+    const [value, meta] = createStreamResource({
+      stream,
+      initialValue: "",
+      reduce: (current = "", chunk: string) => current + chunk,
+    });
+
+    await flushMicrotasks();
+
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(stream).toHaveBeenLastCalledWith(undefined, expect.any(Object));
+    expect(meta.status()).toBe("success");
+    expect(value()).toBe("chunk");
+    expect(meta.stableValue()).toBe("chunk");
   });
 });

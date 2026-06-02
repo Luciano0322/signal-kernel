@@ -99,6 +99,13 @@ Do not couple async resource lifecycle to React, Vue, or component mounting by d
 
 UI frameworks may consume async resources through adapters, but the async runtime itself should remain independent.
 
+For new async-runtime code, examples, and documentation, prefer object-form descriptors:
+
+- `createResource({ input?, observe?, run, ... })`
+- `createStreamResource({ input?, observe?, stream, ... })`
+
+The older positional forms are v0.x compatibility shorthands only. Do not introduce them as the primary teaching pattern in new examples or README snippets.
+
 ---
 
 ### 4. Snapshot is a transfer boundary, not a renderer

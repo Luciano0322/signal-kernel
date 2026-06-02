@@ -58,14 +58,14 @@ This means the package should be explained in terms of **reactive invalidation a
 
 ---
 
-## Preferred API order
+## Preferred API choice
 
-When suggesting code, use the APIs in this order unless the user explicitly asks for lower-level control:
+When suggesting code, choose the highest-level primitive that matches the shape of the async work:
 
-1. `createResource`
-2. `asyncSignal`
-3. `fromPromise`
-4. `createStreamResource`
+1. `createResource` for one-shot async work derived from reactive input.
+2. `createStreamResource` for stream-shaped async work with multiple emissions.
+3. `asyncSignal` for reusable signal-like async state that is not naturally source-driven.
+4. `fromPromise` only when lower-level lifecycle control is needed.
 
 ### Use `createResource` when
 
@@ -105,6 +105,10 @@ Low-level primitive.
 
 Use this when the caller needs direct control over promise lifecycle behavior, hooks, or advanced async semantics.
 
+Use function form for ctx-only work and descriptor form for input-based work. Do not infer producer shape from function arity.
+
+Function form is eager by default. Input descriptor form is lazy by default; if a descriptor must run immediately, it must provide both `eager: true` and `initialInput`.
+
 This is not the default entry point for most app-level usage.
 
 ### `asyncSignal`
@@ -113,11 +117,19 @@ A more ergonomic wrapper around the lower-level async primitive.
 
 Use this when the caller wants signal-like access to async state without manually wiring the primitive layer.
 
+Use descriptor form when the async producer needs explicit `run(input)` semantics.
+
+Descriptor form is lazy by default. Use `initialInput` only when eager descriptor execution is intentional.
+
 ### `createResource`
 
 Preferred high-level API for source-driven async derivation.
 
 Use this when async work depends on reactive input and should be kept aligned with source changes.
+
+Prefer object form with `input`, `observe`, and `run` in new examples. The older positional shape can be treated as a v0.x compatibility shorthand, but it should not be the primary teaching form.
+
+Do not pass `eager` to `createResource`; auto resources run from tracked graph dependencies and manual resources run from `meta.run(input)`.
 
 This should generally be the default recommendation in application-facing examples.
 
@@ -126,6 +138,8 @@ This should generally be the default recommendation in application-facing exampl
 High-level API for source-driven streaming derivation.
 
 Use this when async work emits multiple updates over time and should stay bound to a reactive source.
+
+Prefer object form with `input`, `observe`, and `stream` in new examples. The older positional shape can be treated as a v0.x compatibility shorthand, but it should not be the primary teaching form.
 
 This should be the default recommendation for stream-shaped data rather than forcing streaming use cases into `createResource` or manual effect code.
 
@@ -205,7 +219,11 @@ Example shape:
 
 ```ts
 const query = signal("");
-const [results, meta] = createResource(query, fetchSearchResults);
+const [results, meta] = createResource({
+  input: query.get,
+  run: (currentQuery, ctx) =>
+    fetchSearchResults(currentQuery, { signal: ctx.signal }),
+});
 ```
 
 This is the preferred style when async work depends on changing reactive input.
@@ -217,8 +235,22 @@ Use `asyncSignal` when the user wants signal-like access to async lifecycle stat
 Example shape:
 
 ```ts
-const [user, meta] = asyncSignal(() => fetchUser(id()));
+const [user, meta] = asyncSignal((ctx) =>
+  fetchCurrentUser({ signal: ctx.signal }),
+);
 ```
+
+For explicit input-based execution:
+
+```ts
+const [user, meta] = asyncSignal({
+  run: (id: string, ctx) => fetchUser(id, { signal: ctx.signal }),
+});
+
+await meta.run("u1");
+```
+
+Do not imply that function-form `asyncSignal()` automatically tracks changing business inputs. If the async work needs explicit input, use descriptor form with `run(input, ctx)`, or use `createResource({ input, run })` when the input should come from the reactive graph.
 
 ### Pattern 3: low-level lifecycle customization
 
@@ -227,7 +259,7 @@ Use `fromPromise` only when lower-level hooks or direct lifecycle control are re
 Example shape:
 
 ```ts
-const request = fromPromise(() => fetchUser(id()), {
+const request = fromPromise(async (ctx) => fetchCurrentUser({ signal: ctx.signal }), {
   keepPreviousValueOnPending: true,
   onSuccess(value) {
     // custom handling
@@ -238,6 +270,16 @@ const request = fromPromise(() => fetchUser(id()), {
 });
 ```
 
+For input-based low-level work:
+
+```ts
+const request = fromPromise({
+  run: (id: string, ctx) => fetchUser(id, { signal: ctx.signal }),
+});
+
+await request.run("u1");
+```
+
 ### Pattern 4: source-driven streaming derivation
 
 Use `createStreamResource` when the source determines a stream that emits multiple updates over time.
@@ -246,7 +288,11 @@ Example shape:
 
 ```ts
 const roomId = signal("general");
-const [messages, meta] = createStreamResource(roomId, connectMessageStream);
+const [messages, meta] = createStreamResource({
+  input: roomId.get,
+  stream: (currentRoomId, ctx) =>
+    connectMessageStream(currentRoomId, ctx),
+});
 ```
 
 This is the preferred style for streaming data that should reconnect, invalidate, and detach correctly when the reactive source changes.

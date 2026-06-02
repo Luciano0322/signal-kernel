@@ -102,17 +102,17 @@ export function createDevopsGraph() {
     ]);
   }
 
-  const ciStatus = createResource<CommitId, CiStatus>(
-    selectedCommit.get,
-    (commitId, ctx) => fakeCiApi(commitId, recordEvent, ctx),
-    { keepPreviousValueOnPending: true },
-  ) satisfies ResourceTuple<CiStatus>;
+  const ciStatus = createResource<CommitId, CiStatus>({
+    input: selectedCommit.get,
+    run: (commitId, ctx) => fakeCiApi(commitId, recordEvent, ctx),
+    keepPreviousValueOnPending: true,
+  }) satisfies ResourceTuple<CiStatus>;
 
-  const artifactStatus = createResource<CommitId, ArtifactStatus>(
-    selectedCommit.get,
-    (commitId, ctx) => fakeArtifactApi(commitId, recordEvent, ctx),
-    { keepPreviousValueOnPending: true },
-  ) satisfies ResourceTuple<ArtifactStatus>;
+  const artifactStatus = createResource<CommitId, ArtifactStatus>({
+    input: selectedCommit.get,
+    run: (commitId, ctx) => fakeArtifactApi(commitId, recordEvent, ctx),
+    keepPreviousValueOnPending: true,
+  }) satisfies ResourceTuple<ArtifactStatus>;
 
   const canDeploy = computed(() => {
     const ci = ciStatus[0]();
@@ -128,22 +128,24 @@ export function createDevopsGraph() {
     canDeploy: canDeploy.get(),
   }));
 
-  const deploymentStatus = createResource<DeploymentRequest, DeploymentStatus>(
-    deploymentRequest.get,
-    (request, ctx) => fakeDeploymentApi(request, recordEvent, ctx),
-    { keepPreviousValueOnPending: true },
-  ) satisfies ResourceTuple<DeploymentStatus>;
+  const deploymentStatus = createResource<DeploymentRequest, DeploymentStatus>({
+    input: deploymentRequest.get,
+    run: (request, ctx) => fakeDeploymentApi(request, recordEvent, ctx),
+    keepPreviousValueOnPending: true,
+  }) satisfies ResourceTuple<DeploymentStatus>;
 
-  const healthEvents = createStreamResource<CommitId, HealthEvent, HealthEvent[]>(
-    selectedCommit.get,
-    (commitId, ctx) => fakeHealthStream(commitId, ctx, recordEvent),
-    {
-      initialValue: [],
-      reduce: (current, event) => [...(current ?? []), event],
-      onCancel: "clear",
-      onError: "clear",
-    },
-  ) satisfies StreamTuple<HealthEvent[]>;
+  const healthEvents = createStreamResource<
+    CommitId,
+    HealthEvent,
+    HealthEvent[]
+  >({
+    input: selectedCommit.get,
+    stream: (commitId, ctx) => fakeHealthStream(commitId, ctx, recordEvent),
+    initialValue: [],
+    reduce: (current, event) => [...(current ?? []), event],
+    onCancel: "clear",
+    onError: "clear",
+  }) satisfies StreamTuple<HealthEvent[]>;
 
   const healthSummary = computed(() => summarizeHealth(healthEvents[0]()));
 

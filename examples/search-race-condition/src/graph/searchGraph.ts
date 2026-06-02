@@ -11,14 +11,12 @@ export function createSearchRaceGraph() {
     eventLog.set([...eventLog.peek(), event]);
   }
 
-  const searchResource = createResource<string, SearchResult>(
-    query.get,
-    (currentQuery, ctx) =>
+  const searchResource = createResource<string, SearchResult>({
+    input: query.get,
+    run: (currentQuery, ctx) =>
       runFakeSearch(currentQuery, "signal-kernel", recordEvent, ctx),
-    {
-      keepPreviousValueOnPending: true,
-    },
-  );
+    keepPreviousValueOnPending: true,
+  });
 
   function clearEvents() {
     resetFakeSearchRequestIds();

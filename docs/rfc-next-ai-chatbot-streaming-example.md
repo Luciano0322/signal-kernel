@@ -227,14 +227,14 @@ const canSubmit = computed(() => {
 The graph should own streaming:
 
 ```ts
-const stream = createStreamResource(
-  () => request.get(),
-  async (requestMessages, ctx) => {
+const stream = createStreamResource({
+  input: request.get,
+  stream: async (requestMessages, ctx) => {
     // fetch streaming response
     // emit chunks through ctx.emit()
     // finish through ctx.done()
   },
-);
+});
 ```
 
 The graph should expose actions:
@@ -286,16 +286,14 @@ The policy is:
 The stream resource should express the partial-data policy:
 
 ```ts
-const stream = createStreamResource(
-  () => request.get(),
-  streamAssistantResponse,
-  {
-    initialValue: "",
-    reduce: (current, chunk) => `${current ?? ""}${chunk}`,
-    onCancel: "keep-partial",
-    onError: "keep-partial",
-  },
-);
+const stream = createStreamResource({
+  input: request.get,
+  stream: streamAssistantResponse,
+  initialValue: "",
+  reduce: (current, chunk) => `${current ?? ""}${chunk}`,
+  onCancel: "keep-partial",
+  onError: "keep-partial",
+});
 ```
 
 This is the first behavior the example should make obvious:

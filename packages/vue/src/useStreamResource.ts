@@ -5,31 +5,43 @@ import type {
 import type { Ref } from "vue";
 import { useReactive } from "./useReactive.js";
 
-export type StreamResourceTuple<T, E = unknown> = [
+export type StreamResourceTuple<
+  T,
+  M extends StreamAsyncMeta<unknown, T> = StreamAsyncMeta<unknown, T>,
+> = [
   value: () => T | undefined,
-  meta: StreamAsyncMeta<E, T>,
+  meta: M,
 ];
 
-export interface VueStreamResource<T, E = unknown> {
+type StreamResourceError<M, T> =
+  M extends StreamAsyncMeta<infer E, T> ? E : unknown;
+
+export interface VueStreamResource<
+  T,
+  M extends StreamAsyncMeta<unknown, T> = StreamAsyncMeta<unknown, T>,
+> {
   value: Readonly<Ref<T | undefined>>;
   stableValue: Readonly<Ref<T | undefined>>;
   status: Readonly<Ref<StreamAsyncStatus>>;
-  error: Readonly<Ref<E | undefined>>;
-  reload: () => void;
-  cancel: (reason?: unknown) => void;
-  meta: StreamAsyncMeta<E, T>;
+  error: Readonly<Ref<StreamResourceError<M, T> | undefined>>;
+  reload: M["reload"];
+  cancel: M["cancel"];
+  meta: M;
 }
 
-export function useStreamResource<T, E = unknown>(
-  resource: StreamResourceTuple<T, E>,
-): VueStreamResource<T, E> {
+export function useStreamResource<
+  T,
+  M extends StreamAsyncMeta<unknown, T> = StreamAsyncMeta<unknown, T>,
+>(
+  resource: StreamResourceTuple<T, M>,
+): VueStreamResource<T, M> {
   const [value, meta] = resource;
 
   return {
     value: useReactive(value),
     stableValue: useReactive(meta.stableValue),
     status: useReactive(meta.status),
-    error: useReactive(meta.error),
+    error: useReactive(() => meta.error() as StreamResourceError<M, T> | undefined),
     reload: meta.reload,
     cancel: meta.cancel,
     meta,

@@ -12,7 +12,7 @@ export interface Readable<T> {
 
 export type ResourceTuple<T, E = unknown> = [
   value: () => T | undefined,
-  meta: AsyncMeta<E>,
+  meta: AsyncMeta<E, T>,
 ];
 
 export interface Account {
