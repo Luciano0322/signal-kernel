@@ -66,32 +66,33 @@ interface ResourceContext {
 
 type ResourceOptions<T = unknown> = Omit<FromPromiseOptions<T>, "eager">;
 
-createResource<S, T, E = unknown>(
-  source: () => S,
-  fetcher: (sourceValue: S, ctx: ResourceContext) => Promise<T>,
-  options?: ResourceOptions<T>
-): [() => T | undefined, AsyncMeta<E, T>]
-
 createResource<I, T, E = unknown>({
   input?: () => I;
   observe?: () => void;
   run: (input: I, ctx: ResourceContext) => Promise<T>;
   trigger?: "auto";
-}): [() => T | undefined, AsyncMeta<E, T>]
+} & ResourceOptions<T>): [() => T | undefined, AsyncMeta<E, T>]
 
 createResource<I, T, E = unknown>({
   trigger: "manual";
   run: (input: I, ctx: ResourceContext) => Promise<T>;
   invalidates?: (result: T, input: I) => InvalidationTarget[];
-}): [() => T | undefined, RunnableAsyncMeta<I, T, E>]
+} & ResourceOptions<T>): [() => T | undefined, RunnableAsyncMeta<I, T, E>]
+
+// v0.x compatibility shorthand
+createResource<S, T, E = unknown>(
+  source: () => S,
+  fetcher: (sourceValue: S, ctx: ResourceContext) => Promise<T>,
+  options?: ResourceOptions<T>
+): [() => T | undefined, AsyncMeta<E, T>]
 ```
 
 ### How it works
 
-* The `source()` function is tracked via `createEffect()`.
-* In object form, `input()` is tracked and its return value is passed to `run(input, ctx)`.
+* New code should prefer object form with `input`, `observe`, and `run`.
+* `input()` is tracked via `createEffect()` and its return value is passed to `run(input, ctx)`.
 * `observe()` may track additional invalidation dependencies without passing them to `run()`.
-* When `source()` changes:
+* When `input()` or `observe()` dependencies change:
 
   * The previous async work is canceled (`meta.cancel("source-changed")`).
   * A new fetch begins with the latest input.
@@ -102,6 +103,8 @@ createResource<I, T, E = unknown>({
 * Values and metadata update reactively.
 
 `eager` is intentionally not part of `ResourceOptions`. Auto resources are driven by tracked graph dependencies; manual resources are driven by `meta.run(input)`.
+
+The older positional `createResource(source, fetcher, options?)` shape remains a v0.x compatibility shorthand, but object form is the primary documented API because it scales to `input`, `observe`, manual execution, and declarative invalidation.
 
 ### Example
 
@@ -123,7 +126,7 @@ createEffect(() => {
   console.log("Status:", meta.status());
 });
 
-// Changing source triggers new fetch
+// Changing input triggers new fetch
 id.set(2);
 ```
 
@@ -208,15 +211,6 @@ interface StreamContext<TChunk, TValue> {
   isCancelled(): boolean;
 }
 
-createStreamResource<S, TChunk, TValue, E = unknown>(
-  source: () => S,
-  streamer: (
-    sourceValue: S,
-    ctx: StreamContext<TChunk, TValue>
-  ) => Promise<void> | void,
-  options?: StreamResourceOptions<TChunk, TValue, E>
-): [() => TValue | undefined, StreamAsyncMeta<E, TValue>]
-
 createStreamResource<I, TChunk, TValue, E = unknown>({
   input?: () => I;
   observe?: () => void;
@@ -228,6 +222,16 @@ createStreamResource<I, TChunk, TValue, E = unknown>({
   () => TValue | undefined,
   StreamAsyncMeta<E, TValue>
 ]
+
+// v0.x compatibility shorthand
+createStreamResource<S, TChunk, TValue, E = unknown>(
+  source: () => S,
+  streamer: (
+    sourceValue: S,
+    ctx: StreamContext<TChunk, TValue>
+  ) => Promise<void> | void,
+  options?: StreamResourceOptions<TChunk, TValue, E>
+): [() => TValue | undefined, StreamAsyncMeta<E, TValue>]
 ```
 
 ### Core semantics
@@ -239,6 +243,8 @@ A stream resource separates **visible accumulated value** from **stable committe
 * `status()` can be `idle`, `pending`, `streaming`, `success`, `error`, or `cancelled`
 
 This allows streaming UIs to expose partial output while still preserving a stable-state model for higher-level logic.
+
+New stream code should prefer object form with `input`, `observe`, and `stream`. The older positional `createStreamResource(source, streamer, options?)` shape remains a v0.x compatibility shorthand.
 
 ### Interruption policy
 
