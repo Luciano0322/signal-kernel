@@ -112,17 +112,17 @@ export function createCommerceGraph(): CommerceGraphContract {
     };
   });
 
-  const pricing = createResource<PricingRequest, PricingResult>(
-    pricingRequest.get,
-    (request, ctx) => fakePricingApi(request, recordEvent, ctx),
-    { keepPreviousValueOnPending: false },
-  ) satisfies ResourceTuple<PricingResult>;
+  const pricing = createResource<PricingRequest, PricingResult>({
+    input: pricingRequest.get,
+    run: (request, ctx) => fakePricingApi(request, recordEvent, ctx),
+    keepPreviousValueOnPending: false,
+  }) satisfies ResourceTuple<PricingResult>;
 
-  const inventory = createResource<InventoryRequest, InventoryResult>(
-    inventoryRequest.get,
-    (request, ctx) => fakeInventoryApi(request, recordEvent, ctx),
-    { keepPreviousValueOnPending: false },
-  ) satisfies ResourceTuple<InventoryResult>;
+  const inventory = createResource<InventoryRequest, InventoryResult>({
+    input: inventoryRequest.get,
+    run: (request, ctx) => fakeInventoryApi(request, recordEvent, ctx),
+    keepPreviousValueOnPending: false,
+  }) satisfies ResourceTuple<InventoryResult>;
 
   const checkout = computed<CheckoutDecision>(() => {
     const request = pricingRequest.get();

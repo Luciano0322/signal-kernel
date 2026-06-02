@@ -345,10 +345,14 @@ Examples:
 Resources should represent async business state:
 
 ```ts
-const pricing = createResource(
-  () => ({ accountId: selectedAccount.get(), region: selectedRegion.get(), items: cartItems.get() }),
-  (request, ctx) => fakePricingApi(request, ctx),
-);
+const pricing = createResource({
+  input: () => ({
+    accountId: selectedAccount.get(),
+    region: selectedRegion.get(),
+    items: cartItems.get(),
+  }),
+  run: (request, ctx) => fakePricingApi(request, ctx),
+});
 ```
 
 Examples:
