@@ -182,29 +182,32 @@ count.set(2); // doubled: 4
 
 ## Async Example
 
+New async-runtime code should use object form. It keeps the reactive input,
+the async operation, and future invalidation hooks explicit.
+
 ```ts
 import { signal } from "@signal-kernel/core";
 import { createResource } from "@signal-kernel/async-runtime";
 
 const userId = signal(1);
 
-const [user, meta] = createResource(
-  userId.get,
-  async (id, ctx) => {
+const [user, meta] = createResource({
+  input: userId.get,
+  run: async (id, ctx) => {
     const response = await fetch(`/api/user/${id}`, {
       signal: ctx.signal,
     });
 
     return response.json();
-  }
-);
+  },
+});
 
 userId.set(2);
 ```
 
 Behavior:
 
-* changing `source()` cancels the previous request
+* changing `input()` cancels the previous request
 * stale async results do not overwrite fresh state
 * pending state can preserve the previous value when desired
 
@@ -215,9 +218,9 @@ Behavior:
 ```ts
 import { createStreamResource } from "@signal-kernel/async-runtime";
 
-const [text, meta] = createStreamResource(
-  () => "Explain signals simply",
-  async (_prompt, ctx) => {
+const [text, meta] = createStreamResource({
+  input: () => "Explain signals simply",
+  stream: async (_prompt, ctx) => {
     for (const chunk of ["Signals ", "track ", "dependencies."]) {
       if (ctx.isCancelled()) return;
       ctx.emit(chunk);
@@ -225,15 +228,22 @@ const [text, meta] = createStreamResource(
 
     ctx.done();
   },
-  {
-    initialValue: "",
-    reduce: (current = "", chunk) => current + chunk,
-  }
-);
+  initialValue: "",
+  reduce: (current = "", chunk) => current + chunk,
+});
 ```
 
 Use `createStreamResource()` when the source is not a one-shot Promise,
 but an ongoing stream or incremental async producer.
+
+### v0.x compatibility note
+
+Older code may still use positional resource forms such as
+`createResource(source, fetcher, options?)` or
+`createStreamResource(source, streamer, options?)` during the v0.x migration
+window. Treat those as compatibility shorthands. New examples and
+documentation prefer object form because it scales better to `input`,
+`observe`, manual execution, and declarative invalidation.
 
 ---
 
@@ -328,12 +338,12 @@ flowchart TD
 
 ### Async Runtime
 
-| API                                         | Description                                                            |
-| ------------------------------------------- | ---------------------------------------------------------------------- |
-| `fromPromise(fetcher, options?)`            | Convert a Promise producer into reactive async state                   |
-| `asyncSignal(fetcher, options?)`            | Async operation with status, error, reload, and cancel metadata        |
-| `createResource(source, fetcher, options?)` | Source-driven async resource with switchMap-style behavior             |
-| `createStreamResource(source, options?)`    | Graph-aware resource for streaming or subscription-style async sources |
+| API                                                  | Description                                                            |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| `fromPromise(fetcher or { run, ... })`               | Convert a Promise producer into reactive async state                   |
+| `asyncSignal(fetcher or { run, ... })`               | Async operation with status, error, reload, and cancel metadata        |
+| `createResource({ input?, observe?, run, ... })`     | Source-driven or manual async resource with latest-wins behavior       |
+| `createStreamResource({ input?, observe?, stream })` | Graph-aware resource for streaming or subscription-style async sources |
 
 ### Framework Adapters
 

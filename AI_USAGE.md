@@ -238,6 +238,13 @@ Primary responsibilities:
 
 Use this package when the user needs async state to participate in a deterministic reactive model.
 
+When generating new async-runtime examples, prefer object-form descriptors:
+
+* `createResource({ input?, observe?, run, ... })`
+* `createStreamResource({ input?, observe?, stream, ... })`
+
+Treat positional forms such as `createResource(source, fetcher, options?)` and `createStreamResource(source, streamer, options?)` as v0.x compatibility shorthands, not as the primary teaching style.
+
 ### `@signal-kernel/snapshot`
 
 The graph transfer and restore package.
