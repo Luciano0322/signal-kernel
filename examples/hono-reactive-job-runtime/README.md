@@ -179,7 +179,7 @@ flowchart TD
   Registry --> Runtime[createJobRuntime]
 
   Runtime --> Sources[Source signals: content, attempt]
-  Sources --> Stream[createStreamResource analysis]
+  Sources --> Stream[createStreamResource({ input }) analysis]
   Stream --> Derived[computed public state]
 
   Derived --> Read[GET /jobs/:id]

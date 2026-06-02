@@ -77,9 +77,9 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
     JobExecutionChunk,
     JobExecutionState,
     Error
-  >(
-    () => runSource.get(),
-    async (source, ctx) => {
+  >({
+    input: runSource.get,
+    stream: async (source, ctx) => {
       if (!source.enabled) {
         ctx.done(initialExecutionState);
         return;
@@ -93,13 +93,11 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
         ctx,
       );
     },
-    {
-      initialValue: initialExecutionState,
-      reduce: reduceExecutionState,
-      onCancel: "keep-partial",
-      onError: "keep-partial",
-    },
-  );
+    initialValue: initialExecutionState,
+    reduce: reduceExecutionState,
+    onCancel: "keep-partial",
+    onError: "keep-partial",
+  });
   const [execution, executionMeta] = analysis;
 
   const status = computed<JobStatus>(() =>
