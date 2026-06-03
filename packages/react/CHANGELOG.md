@@ -1,5 +1,13 @@
 # @signal-kernel/react
 
+## 0.4.1
+
+### Patch Changes
+
+- b5e3caa: Changes the existing async-runtime API surface
+- Updated dependencies [b5e3caa]
+  - @signal-kernel/async-runtime@0.3.0
+
 ## 0.4.0
 
 ### Minor Changes

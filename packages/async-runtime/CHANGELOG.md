@@ -1,5 +1,11 @@
 # @signal-kernel/async-runtime
 
+## 0.3.0
+
+### Minor Changes
+
+- b5e3caa: Changes the existing async-runtime API surface
+
 ## 0.2.4
 
 ### Patch Changes
