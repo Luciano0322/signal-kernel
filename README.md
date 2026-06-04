@@ -182,8 +182,9 @@ count.set(2); // doubled: 4
 
 ## Async Example
 
-New async-runtime code should use object form. It keeps the reactive input,
-the async operation, and future invalidation hooks explicit.
+New async-runtime code should use object form. It keeps reactive input and
+async execution explicit, and leaves room for declarative invalidation when a
+resource needs to stay consistent with external mutations.
 
 ```ts
 import { signal } from "@signal-kernel/core";
@@ -210,6 +211,57 @@ Behavior:
 * changing `input()` cancels the previous request
 * stale async results do not overwrite fresh state
 * pending state can preserve the previous value when desired
+
+### Declarative Invalidation Example
+
+Use `createRevision()` when a manual mutation should cause an auto resource to
+reload after success.
+
+```ts
+import { createResource, createRevision } from "@signal-kernel/async-runtime";
+
+type User = {
+  id: string;
+  name: string;
+};
+
+const usersRevision = createRevision();
+
+const [users] = createResource({
+  observe: () => {
+    usersRevision.get();
+  },
+  run: async (_input, ctx): Promise<User[]> => {
+    const response = await fetch("/api/users", {
+      signal: ctx.signal,
+    });
+
+    return response.json();
+  },
+});
+
+const [, updateUserMeta] = createResource({
+  trigger: "manual",
+  run: async (input: { id: string; name: string }, ctx): Promise<User> => {
+    const response = await fetch(`/api/users/${input.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: input.name }),
+      signal: ctx.signal,
+    });
+
+    return response.json();
+  },
+  invalidates: () => [usersRevision],
+});
+
+await updateUserMeta.run({ id: "u1", name: "Alice" });
+```
+
+`createKeyedRevision()` provides the same invalidation mechanism per key, which
+is useful for detail resources such as `GET /api/users/:id`.
 
 ---
 
@@ -344,6 +396,8 @@ flowchart TD
 | `asyncSignal(fetcher or { run, ... })`               | Async operation with status, error, reload, and cancel metadata        |
 | `createResource({ input?, observe?, run, ... })`     | Source-driven or manual async resource with latest-wins behavior       |
 | `createStreamResource({ input?, observe?, stream })` | Graph-aware resource for streaming or subscription-style async sources |
+| `createRevision()`                                   | Signal-backed invalidation source for collection or global boundaries  |
+| `createKeyedRevision()`                              | Per-key invalidation source for entity/detail boundaries               |
 
 ### Framework Adapters
 
