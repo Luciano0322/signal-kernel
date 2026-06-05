@@ -74,5 +74,6 @@ This allows:
 
 * [Core Runtime RFC](./rfc-core-runtime.md)
 * [Async Runtime RFC](./rfc-async-runtime.md)
+* [Async Runtime Invalidation RFC](./rfc-async-runtime-invalidation.md)
 * [React Adapter RFC](./rfc-react-adapter.md)
 * [Vue Adapter RFC](./rfc-vue-adapter.md)

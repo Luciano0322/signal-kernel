@@ -515,6 +515,7 @@ Design records:
 
 - [`docs/rfc-core-runtime.md`](./docs/rfc-core-runtime.md) records the adopted core runtime boundary.
 - [`docs/rfc-async-runtime.md`](./docs/rfc-async-runtime.md) records the adopted async-runtime boundary.
+- [`docs/rfc-async-runtime-invalidation.md`](./docs/rfc-async-runtime-invalidation.md) records the async-runtime invalidation contract.
 - [`docs/rfc-react-adapter.md`](./docs/rfc-react-adapter.md) describes the React adapter design.
 - [`docs/rfc-vue-adapter.md`](./docs/rfc-vue-adapter.md) describes the Vue adapter design.
 - [`docs/rfc-snapshot-package.md`](./docs/rfc-snapshot-package.md) defines the snapshot package boundary.

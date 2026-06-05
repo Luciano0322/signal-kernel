@@ -2,22 +2,22 @@
 
 ## Status
 
-Draft
+Adopted companion design note for `docs/rfc-async-runtime.md`
 
 ## Package Scope
 
 `@signal-kernel/async-runtime`
 
-This RFC changes the existing async-runtime API surface. It does not introduce a
-new cache package.
+This RFC records the declarative invalidation contract introduced into the
+existing async-runtime API surface. It does not introduce a new cache package.
 
-The filename still says `cache` because the motivating problem overlaps with
-server-state cache invalidation, but the proposed solution is not a query cache.
-It is a declarative invalidation contract built into `@signal-kernel/async-runtime`.
+The motivating problem overlaps with server-state cache invalidation, but the
+solution is not a query cache. It is a framework-neutral invalidation contract
+built into `@signal-kernel/async-runtime`.
 
 ## Motivation
 
-The current `createResource` API models this flow well:
+The earlier `createResource` API modeled this flow well:
 
 ```txt
 reactive input changed
@@ -38,13 +38,13 @@ In this case, `GET /users` and `PUT /users/:id` may have no direct reactive depe
 For example:
 
 ```ts
-const [users] = createResource(
-  () => ({
+const [users] = createResource({
+  input: () => ({
     page: page.get(),
     keyword: keyword.get(),
   }),
-  fetchUsers
-)
+  run: (input, ctx) => fetchUsers(input, ctx),
+})
 ```
 
 This resource depends on `page` and `keyword`, but it has no way to know that `updateUser(id)` affects the users collection.
@@ -320,7 +320,7 @@ export interface KeyedRevision<K> {
 
 ## Proposed API: Object-form `createResource`
 
-The existing positional API is good for simple auto resources:
+The positional API is concise for simple auto resources:
 
 ```ts
 createResource(source, fetcher, options)
@@ -336,11 +336,11 @@ trigger
 invalidates
 ```
 
-Therefore, add an object-form API.
+Therefore, v0.3 makes object form the primary documented API.
 
-This is also the preferred shape for new advanced resource features. Once a
-resource needs more than `source`, `run`, and `options`, object form is clearer
-than extending positional arguments.
+This is the preferred shape for new resource features. Once a resource needs
+more than `input`, `run`, and options, object form is clearer than extending
+positional arguments.
 
 ## Auto Resource Descriptor
 
@@ -547,9 +547,9 @@ latest known input. For manual resources, `reload()` reruns the latest manual
 input once a first `run(input)` has established one. Before any input exists,
 manual `reload()` is a no-op.
 
-## Backward Compatibility
+## v0.x Compatibility
 
-The existing positional API should remain supported:
+The positional API should remain supported as a v0.x compatibility shorthand:
 
 ```ts
 createResource(source, fetcher, options)
@@ -566,7 +566,8 @@ createResource({
 })
 ```
 
-This avoids breaking existing examples.
+This avoids breaking existing examples while keeping object form as the primary
+teaching and documentation style.
 
 ## Example: Users CRUD
 
@@ -729,7 +730,7 @@ invalidates solves external consistency.
 
 ## `createStreamResource` Considerations
 
-`createStreamResource` has the same source/observe gap as `createResource`, but
+`createStreamResource` has the same input/observe gap as `createResource`, but
 it should not automatically copy all mutation invalidation semantics.
 
 For streams, `observe` can make sense:
@@ -810,7 +811,7 @@ Tests:
 2. `observe()` dependencies trigger reload.
 3. `observe()` values are not passed to `run`.
 4. Changing both input and observe in the same batch should not cause duplicate reloads if batching is supported.
-5. Existing positional API still works.
+5. Positional compatibility shorthand still works.
 6. Parameterless object-form resources can run with `undefined` input.
 
 ### Phase 3: Add Manual Resource Mode
