@@ -1,0 +1,150 @@
+:root {
+  color: #152018;
+  background: #eef4ef;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    linear-gradient(180deg, rgba(210, 226, 213, 0.8), rgba(238, 244, 239, 0.95)),
+    #eef4ef;
+}
+
+button,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.shell {
+  margin: 0 auto;
+  max-width: 1180px;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #3b7350;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: #102216;
+  font-size: 32px;
+  line-height: 1.15;
+}
+
+.subtitle {
+  max-width: 700px;
+  margin: 10px 0 0;
+  color: #46594b;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.nav a,
+.button {
+  border: 1px solid #b6c8bb;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #183421;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.nav a:hover,
+.button:hover {
+  border-color: #6d9778;
+  background: #f8fbf8;
+}
+
+.button.primary {
+  border-color: #2f6d48;
+  background: #2f6d48;
+  color: white;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 18px;
+}
+
+.panel {
+  border: 1px solid #c6d4ca;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 18px 50px rgba(32, 55, 40, 0.08);
+  padding: 18px;
+}
+
+.panel-title {
+  margin: 0 0 12px;
+  color: #183421;
+  font-size: 17px;
+}
+
+.muted {
+  color: #657466;
+}
+
+.grid {
+  display: grid;
+  gap: 14px;
+}
+
+.two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 20px;
+  }
+
+  .topbar,
+  .layout,
+  .two-column {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+}

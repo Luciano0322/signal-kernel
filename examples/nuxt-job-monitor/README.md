@@ -1,0 +1,35 @@
+# Nuxt Job Monitor
+
+Nuxt dashboard example for comparing two graph ownership models:
+
+- `kernel-owned`: Nuxt renders readonly refs from an external `signal-kernel` async graph.
+- `vue-owned`: Nuxt/Vue owns the same job monitor state with ordinary Vue `ref` and `computed`.
+
+The example follows `docs/rfc-nuxt-job-monitor.md`.
+
+## Scripts
+
+```sh
+pnpm --filter @signal-kernel/example-nuxt-job-monitor dev
+pnpm --filter @signal-kernel/example-nuxt-job-monitor test
+pnpm --filter @signal-kernel/example-nuxt-job-monitor typecheck
+pnpm --filter @signal-kernel/example-nuxt-job-monitor build
+```
+
+## Boundary
+
+The transport layer is shared by both pages so the comparison stays focused on graph ownership instead of fake API details.
+
+The kernel-owned page uses:
+
+- `@signal-kernel/core` for signals and computed values
+- `@signal-kernel/async-runtime` for resources, manual mutation resources, and invalidation revisions
+- `@signal-kernel/vue` to expose graph values to Vue as readonly refs
+
+The Vue-owned page uses:
+
+- Vue `ref`
+- Vue `computed`
+- Vue lifecycle hooks
+
+This example is not a claim that Vue reactivity is insufficient. It demonstrates when a graph may be more useful outside the UI framework.
