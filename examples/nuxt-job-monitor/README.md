@@ -7,6 +7,12 @@ Nuxt dashboard example for comparing two graph ownership models:
 
 The example follows `docs/rfc-nuxt-job-monitor.md`.
 
+The data source is a Nuxt server-side mock:
+
+- `GET /api/jobs` returns the current job list.
+- `POST /api/jobs/:id/retry` and `POST /api/jobs/:id/cancel` mutate the mock job store.
+- `GET /api/jobs/events` emits Server-Sent Events for job progress and logs.
+
 ## Scripts
 
 ```sh
@@ -18,7 +24,7 @@ pnpm --filter @signal-kernel/example-nuxt-job-monitor build
 
 ## Boundary
 
-The transport layer is shared by both pages so the comparison stays focused on graph ownership instead of fake API details.
+The transport interface is shared by both pages so the comparison stays focused on graph ownership instead of fake API details. The current UI uses `createNuxtJobTransport()` against Nuxt API routes, while `createMockJobTransport()` remains available for pure client-side tests or demos.
 
 The kernel-owned page uses:
 

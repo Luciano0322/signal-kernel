@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import {
-  createMockJobTransport,
+  createNuxtJobTransport,
   type Job,
   type JobEvent,
   type JobLog,
@@ -9,7 +9,7 @@ import {
   type JobSummary,
 } from "../job-kernel";
 
-const transport = createMockJobTransport();
+const transport = createNuxtJobTransport();
 
 const jobs = ref<Job[]>([]);
 const logs = ref<JobLog[]>([]);

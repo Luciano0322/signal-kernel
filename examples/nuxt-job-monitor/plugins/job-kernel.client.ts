@@ -1,9 +1,9 @@
 import { defineNuxtPlugin } from "nuxt/app";
-import { createJobKernel, createMockJobTransport } from "../job-kernel";
+import { createJobKernel, createNuxtJobTransport } from "../job-kernel";
 
 export default defineNuxtPlugin(() => {
   const kernel = createJobKernel({
-    transport: createMockJobTransport(),
+    transport: createNuxtJobTransport(),
   });
 
   kernel.actions.start();
