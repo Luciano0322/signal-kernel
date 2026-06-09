@@ -26,6 +26,15 @@ export type JobLog = {
   message: string;
 };
 
+export type JobEventStreamStatus =
+  | "idle"
+  | "connecting"
+  | "open"
+  | "reconnecting"
+  | "closed";
+
+export type JobQueueHealth = "healthy" | "attention" | "blocked";
+
 export type JobEvent =
   | { type: "job_created"; job: Job }
   | { type: "job_started"; jobId: string; timestamp: number }
@@ -55,4 +64,19 @@ export type JobSummary = {
   retrying: number;
   cancelled: number;
   averageDurationMs: number | null;
+};
+
+export type JobListItem = Job & {
+  canRetry: boolean;
+  canCancel: boolean;
+  isStuck: boolean;
+  isSlaBreached: boolean;
+};
+
+export type JobRuntimeHealth = {
+  connectionStatus: JobEventStreamStatus;
+  lastEventAt: number | null;
+  queueHealth: JobQueueHealth;
+  stuckJobs: number;
+  slaBreachedJobs: number;
 };

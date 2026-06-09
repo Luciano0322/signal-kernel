@@ -4,11 +4,12 @@ import type { JobStatus } from "../job-kernel";
 
 const kernel = useJobKernel();
 
-const jobs = useSignalValue(kernel.computed.filteredJobs);
+const jobs = useSignalValue(kernel.computed.filteredJobListItems);
 const selectedJob = useSignalValue(kernel.computed.selectedJob);
 const selectedJobId = useSignalValue(kernel.state.selectedJobId);
 const selectedJobLogs = useSignalValue(kernel.computed.selectedJobLogs);
 const summary = useSignalValue(kernel.computed.jobSummary);
+const runtimeHealth = useSignalValue(kernel.computed.runtimeHealth);
 const filter = useSignalValue(kernel.state.statusFilter);
 const jobsResource = useResource(kernel.resources.jobsResource);
 const jobsStatus = jobsResource.status;
@@ -59,6 +60,9 @@ function reloadJobs() {
           <JobToolbar
             title="@signal-kernel/async-runtime resource"
             :status="jobsStatus"
+            :stream-status="runtimeHealth.connectionStatus"
+            :queue-health="runtimeHealth.queueHealth"
+            :last-event-at="runtimeHealth.lastEventAt"
             @reload="reloadJobs"
           />
           <JobSummary :summary="summary" />

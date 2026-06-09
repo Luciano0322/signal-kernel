@@ -56,15 +56,27 @@ export function createNuxtJobTransport(
       );
     },
 
-    subscribeJobEvents(onEvent: (event: JobEvent) => void) {
+    subscribeJobEvents(onEvent: (event: JobEvent) => void, options) {
+      options?.onStatusChange?.("connecting");
+
       const source = new EventSource(`${basePath}/events`);
+
+      source.onopen = () => {
+        options?.onStatusChange?.("open");
+      };
 
       source.onmessage = (message) => {
         onEvent(JSON.parse(message.data) as JobEvent);
       };
 
+      source.onerror = (error) => {
+        options?.onStatusChange?.("reconnecting");
+        options?.onError?.(error);
+      };
+
       return () => {
         source.close();
+        options?.onStatusChange?.("closed");
       };
     },
   };

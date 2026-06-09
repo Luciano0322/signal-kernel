@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMockJobStore } from "./mockJobStore";
-import type { JobEvent } from "../types";
+import type { JobEvent, JobEventStreamStatus } from "../types";
 
 describe("createMockJobStore", () => {
   it("emits server-style job events to subscribers", async () => {
@@ -21,5 +21,22 @@ describe("createMockJobStore", () => {
         }),
       ]),
     );
+  });
+
+  it("reports subscription status changes", () => {
+    const store = createMockJobStore();
+    const statuses: JobEventStreamStatus[] = [];
+    const unsubscribe = store.subscribeJobEvents(
+      () => {},
+      {
+        onStatusChange: (status) => {
+          statuses.push(status);
+        },
+      },
+    );
+
+    unsubscribe();
+
+    expect(statuses).toEqual(["open", "closed"]);
   });
 });

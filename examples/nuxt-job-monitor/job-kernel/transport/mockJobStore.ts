@@ -215,13 +215,15 @@ export function createMockJobStore(): MockJobStore {
       });
     },
 
-    subscribeJobEvents(onEvent) {
+    subscribeJobEvents(onEvent, options) {
+      options?.onStatusChange?.("open");
       listeners.add(onEvent);
       ensureTimer();
 
       return () => {
         listeners.delete(onEvent);
         stopTimerIfIdle();
+        options?.onStatusChange?.("closed");
       };
     },
   };

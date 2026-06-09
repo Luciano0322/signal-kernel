@@ -4,11 +4,17 @@ import {
   createNuxtJobTransport,
   type Job,
   type JobEvent,
+  type JobEventStreamStatus,
+  type JobListItem,
   type JobLog,
+  type JobQueueHealth,
+  type JobRuntimeHealth,
   type JobStatus,
   type JobSummary,
 } from "../job-kernel";
 
+const STUCK_JOB_MS = 1000 * 60 * 15;
+const SLA_BREACH_MS = 1000 * 60 * 10;
 const transport = createNuxtJobTransport();
 
 const jobs = ref<Job[]>([]);
@@ -16,8 +22,49 @@ const logs = ref<JobLog[]>([]);
 const selectedJobId = ref<string | null>(null);
 const statusFilter = ref<JobStatus | "all">("all");
 const loadStatus = ref<"idle" | "pending" | "success" | "error">("idle");
+const streamStatus = ref<JobEventStreamStatus>("idle");
+const lastEventAt = ref<number | null>(null);
 
 let unsubscribe: (() => void) | undefined;
+
+function canRetryJob(job: Job) {
+  return job.status === "failed";
+}
+
+function canCancelJob(job: Job) {
+  return (
+    job.status === "queued" ||
+    job.status === "running" ||
+    job.status === "retrying"
+  );
+}
+
+function isStuckJob(job: Job, timestamp: number) {
+  return (
+    (job.status === "running" || job.status === "retrying") &&
+    job.progress < 100 &&
+    job.startedAt != null &&
+    timestamp - job.startedAt > STUCK_JOB_MS
+  );
+}
+
+function isSlaBreachedJob(job: Job, timestamp: number) {
+  if (
+    job.status === "succeeded" ||
+    job.status === "failed" ||
+    job.status === "cancelled"
+  ) {
+    return false;
+  }
+
+  return timestamp - job.createdAt > SLA_BREACH_MS;
+}
+
+function toEventTimestamp(event: JobEvent) {
+  if (event.type === "job_created") return event.job.createdAt;
+  if (event.type === "log_appended") return event.log.timestamp;
+  return event.timestamp;
+}
 
 function updateJob(jobId: string, updater: (job: Job) => Job) {
   jobs.value = jobs.value.map((job) =>
@@ -26,6 +73,8 @@ function updateJob(jobId: string, updater: (job: Job) => Job) {
 }
 
 function applyJobEvent(event: JobEvent) {
+  lastEventAt.value = toEventTimestamp(event);
+
   switch (event.type) {
     case "job_created":
       jobs.value = [...jobs.value, event.job];
@@ -106,18 +155,15 @@ async function reloadJobs() {
   }
 }
 
-async function retryJob(jobId: string) {
+function applyOptimisticRetry(jobId: string) {
   applyJobEvent({
     type: "job_retrying",
     jobId,
     timestamp: Date.now(),
   });
-  await transport.retryJob(jobId);
-  await reloadJobs();
 }
 
-async function cancelJob(jobId: string) {
-  await transport.cancelJob(jobId);
+function applyConfirmedCancel(jobId: string) {
   applyJobEvent({
     type: "job_cancelled",
     jobId,
@@ -125,9 +171,32 @@ async function cancelJob(jobId: string) {
   });
 }
 
+async function retryJob(jobId: string) {
+  applyOptimisticRetry(jobId);
+  await transport.retryJob(jobId);
+  await reloadJobs();
+}
+
+async function cancelJob(jobId: string) {
+  await transport.cancelJob(jobId);
+  applyConfirmedCancel(jobId);
+}
+
 const filteredJobs = computed(() => {
   if (statusFilter.value === "all") return jobs.value;
   return jobs.value.filter((job) => job.status === statusFilter.value);
+});
+
+const jobListItems = computed<JobListItem[]>(() => {
+  const timestamp = Date.now();
+
+  return filteredJobs.value.map((job) => ({
+    ...job,
+    canRetry: canRetryJob(job),
+    canCancel: canCancelJob(job),
+    isStuck: isStuckJob(job, timestamp),
+    isSlaBreached: isSlaBreachedJob(job, timestamp),
+  }));
 });
 
 const selectedJob = computed(() => {
@@ -159,9 +228,41 @@ const summary = computed<JobSummary>(() => {
   };
 });
 
+const runtimeHealth = computed<JobRuntimeHealth>(() => {
+  const timestamp = Date.now();
+  const stuckJobs = jobs.value.filter((job) => isStuckJob(job, timestamp))
+    .length;
+  const slaBreachedJobs = jobs.value.filter((job) =>
+    isSlaBreachedJob(job, timestamp),
+  ).length;
+  const failedJobs = jobs.value.filter((job) => job.status === "failed").length;
+  const retryingJobs = jobs.value.filter((job) => job.status === "retrying")
+    .length;
+
+  let queueHealth: JobQueueHealth = "healthy";
+
+  if (failedJobs > 0 || stuckJobs > 0) {
+    queueHealth = "blocked";
+  } else if (retryingJobs > 0 || slaBreachedJobs > 0) {
+    queueHealth = "attention";
+  }
+
+  return {
+    connectionStatus: streamStatus.value,
+    lastEventAt: lastEventAt.value,
+    queueHealth,
+    stuckJobs,
+    slaBreachedJobs,
+  };
+});
+
 onMounted(() => {
   void reloadJobs();
-  unsubscribe = transport.subscribeJobEvents(applyJobEvent);
+  unsubscribe = transport.subscribeJobEvents(applyJobEvent, {
+    onStatusChange: (status) => {
+      streamStatus.value = status;
+    },
+  });
 });
 
 onBeforeUnmount(() => {
@@ -193,6 +294,9 @@ onBeforeUnmount(() => {
           <JobToolbar
             title="Vue local refs"
             :status="loadStatus"
+            :stream-status="runtimeHealth.connectionStatus"
+            :queue-health="runtimeHealth.queueHealth"
+            :last-event-at="runtimeHealth.lastEventAt"
             @reload="reloadJobs"
           />
           <JobSummary :summary="summary" />
@@ -203,7 +307,7 @@ onBeforeUnmount(() => {
           <article class="panel">
             <h2 class="panel-title">Jobs</h2>
             <JobList
-              :jobs="filteredJobs"
+              :jobs="jobListItems"
               :selected-id="selectedJobId"
               @select="selectedJobId = $event"
               @retry="retryJob"

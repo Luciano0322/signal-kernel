@@ -141,6 +141,11 @@ average duration
 selected job
 filtered jobs
 selected job logs
+job list action flags
+queue health
+SLA breach count
+event stream connection status
+last event timestamp
 ```
 
 These values should be computed by signal-kernel, not by Vue component-level `computed()` calls.
@@ -1175,7 +1180,21 @@ Average Duration
 
 ---
 
-### 17.2 Job list
+### 17.2 Toolbar/status area
+
+Display:
+
+```txt
+Load State
+Stream Status
+Queue Health
+Last Event
+Reload Action
+```
+
+---
+
+### 17.3 Job list
 
 Each row should display:
 
@@ -1201,7 +1220,7 @@ Cancel should only be shown for queued, running, or retrying jobs.
 
 ---
 
-### 17.3 Job detail
+### 17.4 Job detail
 
 The selected job detail panel should display:
 
@@ -1219,7 +1238,7 @@ error
 
 ---
 
-### 17.4 Log panel
+### 17.5 Log panel
 
 The log panel should display logs for the selected job.
 
@@ -1529,6 +1548,28 @@ slaBreachedJobs
 queueHealth
 lastEventAt
 connectionStatus
+```
+
+The current implementation should expose these through graph-owned computed values on the kernel-owned page:
+
+```ts
+const filteredJobListItems = computed(() => {
+  return filteredJobs.get().map(job => ({
+    ...job,
+    canRetry: canRetryJob(job),
+    canCancel: canCancelJob(job),
+    isStuck: isStuckJob(job, Date.now()),
+    isSlaBreached: isSlaBreachedJob(job, Date.now()),
+  }))
+})
+
+const runtimeHealth = computed(() => ({
+  connectionStatus: eventStreamStatus.get(),
+  lastEventAt: lastEventAt.get(),
+  queueHealth,
+  stuckJobs,
+  slaBreachedJobs,
+}))
 ```
 
 Acceptance criteria:

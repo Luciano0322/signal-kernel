@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Job } from "../job-kernel";
+import type { JobListItem } from "../job-kernel";
 
 defineProps<{
-  jobs: Job[];
+  jobs: JobListItem[];
   selectedId: string | null;
 }>();
 
@@ -11,18 +11,6 @@ defineEmits<{
   retry: [jobId: string];
   cancel: [jobId: string];
 }>();
-
-function canRetry(job: Job) {
-  return job.status === "failed";
-}
-
-function canCancel(job: Job) {
-  return (
-    job.status === "queued" ||
-    job.status === "running" ||
-    job.status === "retrying"
-  );
-}
 </script>
 
 <template>
@@ -39,7 +27,11 @@ function canCancel(job: Job) {
       </button>
 
       <div class="progress">
-        <span class="badge" :data-status="job.status">{{ job.status }}</span>
+        <div class="badges">
+          <span class="badge" :data-status="job.status">{{ job.status }}</span>
+          <span v-if="job.isStuck" class="badge warning">stuck</span>
+          <span v-else-if="job.isSlaBreached" class="badge warning">sla</span>
+        </div>
         <div class="bar">
           <span :style="{ width: `${job.progress}%` }" />
         </div>
@@ -47,7 +39,7 @@ function canCancel(job: Job) {
 
       <div class="actions">
         <button
-          v-if="canRetry(job)"
+          v-if="job.canRetry"
           class="button"
           type="button"
           @click="$emit('retry', job.id)"
@@ -55,7 +47,7 @@ function canCancel(job: Job) {
           Retry
         </button>
         <button
-          v-if="canCancel(job)"
+          v-if="job.canCancel"
           class="button"
           type="button"
           @click="$emit('cancel', job.id)"
@@ -118,6 +110,12 @@ function canCancel(job: Job) {
   gap: 8px;
 }
 
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .badge {
   border-radius: 999px;
   background: #eef4ef;
@@ -126,6 +124,11 @@ function canCancel(job: Job) {
   font-size: 12px;
   justify-self: start;
   padding: 4px 8px;
+}
+
+.badge.warning {
+  background: #fff1d7;
+  color: #8a5b11;
 }
 
 .badge[data-status="failed"] {
