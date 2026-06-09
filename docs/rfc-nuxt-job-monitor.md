@@ -11,7 +11,7 @@ The goal is not to build a normal Nuxt dashboard, nor to prove that Vue reactivi
 
 The demo will simulate an **Async Job / Workflow Monitor**. Users can view background jobs, monitor job progress, inspect logs, retry failed jobs, cancel running jobs, and observe derived summary state.
 
-The job state will be driven by a mock async event stream. signal-kernel will own the job graph, derived state, resource lifecycle, mutation invalidation, and event reconciliation. Nuxt/Vue will only consume live graph values through readonly Vue refs exposed by the Vue adapter.
+The job state will be driven by a Nuxt server-side mock job store exposed through REST-like API routes and Server-Sent Events. signal-kernel will own the job graph, derived state, resource lifecycle, mutation invalidation, and event reconciliation. Nuxt/Nitro will own the HTTP transport boundary. Nuxt/Vue will consume live graph values through readonly Vue refs exposed by the Vue adapter.
 
 ---
 
@@ -169,11 +169,20 @@ graph reconciliation is centralized
 
 ---
 
-### 4.6 Demonstrate event stream integration
+### 4.6 Demonstrate Nuxt server-side event stream integration
 
-The first version does not need WebSocket or SSE.
+The first version should use a real Nuxt/Nitro route boundary, but it does not need a real database, queue worker, or external backend.
 
-A mock event stream is sufficient:
+The mock job store should live on the Nuxt server side and be exposed through:
+
+```txt
+GET /api/jobs
+POST /api/jobs/:id/retry
+POST /api/jobs/:id/cancel
+GET /api/jobs/events
+```
+
+`GET /api/jobs/events` should emit Server-Sent Events. The client transport should convert those HTTP events back into `JobEvent` objects:
 
 ```ts
 subscribeJobEvents((event) => {
@@ -181,13 +190,13 @@ subscribeJobEvents((event) => {
 })
 ```
 
-The mock transport may use `setInterval` to simulate progress updates, status transitions, and log events.
+The server-side mock store may still use `setInterval` internally to simulate progress updates, status transitions, and log events. The important boundary is that the browser talks to Nuxt through the transport interface instead of owning the mock state directly.
 
 ---
 
 ## 5. Non-Goals
 
-### 5.1 No real backend in the first version
+### 5.1 No real external backend in the first version
 
 The first version does not need:
 
@@ -202,7 +211,7 @@ authentication
 real deployment pipeline
 ```
 
-The goal is to demonstrate reactive graph ownership, not backend infrastructure.
+The first version should include Nuxt server routes, but those routes should use an in-memory mock store. The goal is to demonstrate reactive graph ownership and transport boundaries, not backend infrastructure.
 
 ---
 
@@ -331,13 +340,33 @@ One-line description:
                         | transport interface
                         v
 +----------------------------------------------+
-| Mock Transport Layer                         |
+| Nuxt Job Transport                           |
 |                                              |
 | - fetchJobs                                  |
 | - retryJob                                   |
 | - cancelJob                                  |
 | - subscribeJobEvents                         |
-| - subscribeJobLogs                           |
++-----------------------+----------------------+
+                        |
+                        | HTTP + SSE
+                        v
++----------------------------------------------+
+| Nuxt/Nitro Server Routes                     |
+|                                              |
+| - GET /api/jobs                              |
+| - POST /api/jobs/:id/retry                   |
+| - POST /api/jobs/:id/cancel                  |
+| - GET /api/jobs/events                       |
++-----------------------+----------------------+
+                        |
+                        v
++----------------------------------------------+
+| Server-side Mock Job Store                   |
+|                                              |
+| - in-memory jobs                             |
+| - in-memory logs                             |
+| - simulated progress timer                   |
+| - emits JobEvent objects                     |
 +----------------------------------------------+
 ```
 
@@ -351,7 +380,9 @@ One-line description:
 | Vue components | Rendering, click handlers, local UI state | No |
 | `@signal-kernel/vue` | Bridge signal-kernel graph to Vue | No |
 | `job-kernel` | Domain reactive graph | Yes |
-| Transport | API/event source abstraction | No |
+| Client transport | API/event source abstraction | No |
+| Nuxt/Nitro server routes | HTTP and SSE boundary | No |
+| Server mock store | Fake backend state for the demo | No |
 | signal-kernel core | Reactive primitives | Infrastructure |
 | async-runtime | Async resource and mutation lifecycle | Infrastructure |
 
@@ -359,60 +390,52 @@ One-line description:
 
 ## 8. Proposed Directory Structure
 
-Recommended monorepo structure:
+Current monorepo example structure:
 
 ```txt
-nuxt-job-monitor-signal-kernel-demo/
-  apps/
-    nuxt-dashboard/
-      app.vue
-      nuxt.config.ts
-      pages/
-        index.vue
-        kernel-owned.vue
-        vue-owned.vue
-      components/
-        JobList.vue
-        JobSummary.vue
-        JobDetail.vue
-        JobLogPanel.vue
-        JobToolbar.vue
-        StatusFilter.vue
-      composables/
-        useJobKernel.ts
-      plugins/
-        job-kernel.client.ts
-
-  packages/
+examples/
+  nuxt-job-monitor/
+    app.vue
+    nuxt.config.ts
+    pages/
+      index.vue
+      kernel-owned.vue
+      vue-owned.vue
+    components/
+      JobList.vue
+      JobSummary.vue
+      JobDetail.vue
+      JobLogPanel.vue
+      JobToolbar.vue
+      StatusFilter.vue
+    composables/
+      useJobKernel.ts
+    plugins/
+      job-kernel.client.ts
+    server/
+      api/
+        jobs.get.ts
+        jobs/
+          events.get.ts
+          [id]/
+            retry.post.ts
+            cancel.post.ts
+      utils/
+        jobStore.ts
     job-kernel/
-      src/
-        index.ts
-        types.ts
-        createJobKernel.ts
-
-        graph/
-          jobSignals.ts
-          jobResources.ts
-          jobComputed.ts
-          jobMutations.ts
-          jobEvents.ts
-
-        transport/
-          JobTransport.ts
-          mockJobTransport.ts
-
-        fixtures/
-          createMockJobs.ts
-
-        tests/
-          jobComputed.test.ts
-          jobEvents.test.ts
-          jobMutations.test.ts
-
-  package.json
-  pnpm-workspace.yaml
-  README.md
+      index.ts
+      types.ts
+      createJobKernel.ts
+      createJobKernel.test.ts
+      transport/
+        JobTransport.ts
+        mockJobStore.ts
+        mockJobStore.test.ts
+        mockJobTransport.ts
+        nuxtJobTransport.ts
 ```
+
+The `job-kernel` directory is colocated inside the example for now. Its code must still remain framework-neutral except for transport implementations that explicitly target Nuxt/browser boundaries.
 
 ---
 
@@ -551,7 +574,14 @@ export type JobTransport = {
 }
 ```
 
-The first implementation should be mock-based:
+The first implementation should include two transport variants:
+
+```txt
+createMockJobTransport()
+createNuxtJobTransport()
+```
+
+`createMockJobTransport()` is a pure client-side/in-memory transport useful for tests and isolated demos:
 
 ```ts
 export function createMockJobTransport(): JobTransport {
@@ -564,7 +594,86 @@ export function createMockJobTransport(): JobTransport {
 }
 ```
 
-Future implementations may include:
+The Nuxt dashboard should use `createNuxtJobTransport()` against Nuxt API routes:
+
+```ts
+export function createNuxtJobTransport(options = {}): JobTransport {
+  const basePath = options.basePath ?? '/api/jobs'
+
+  return {
+    fetchJobs(options) {
+      return requestJson<Job[]>(basePath, {
+        signal: options?.signal,
+      })
+    },
+
+    async retryJob(jobId, options) {
+      await requestJson(`${basePath}/${encodeURIComponent(jobId)}/retry`, {
+        method: 'POST',
+        signal: options?.signal,
+      })
+    },
+
+    async cancelJob(jobId, options) {
+      await requestJson(`${basePath}/${encodeURIComponent(jobId)}/cancel`, {
+        method: 'POST',
+        signal: options?.signal,
+      })
+    },
+
+    subscribeJobEvents(onEvent) {
+      const source = new EventSource(`${basePath}/events`)
+
+      source.onmessage = message => {
+        onEvent(JSON.parse(message.data) as JobEvent)
+      }
+
+      return () => {
+        source.close()
+      }
+    },
+  }
+}
+```
+
+Nuxt server route files should prefer explicit h3 imports in this repo. Nuxt auto-imports server helpers, but explicit imports make the example easier to read in a pnpm monorepo and reduce IDE confusion:
+
+```ts
+import { defineEventHandler } from 'h3'
+import { useJobStore } from '../utils/jobStore'
+
+export default defineEventHandler(() => {
+  return useJobStore().fetchJobs()
+})
+```
+
+The SSE route is part of the transport boundary, not the domain graph:
+
+```ts
+import { defineEventHandler } from 'h3'
+import { useJobStore } from '../../utils/jobStore'
+
+export default defineEventHandler(event => {
+  const response = event.node.res
+
+  response.statusCode = 200
+  response.setHeader('content-type', 'text/event-stream')
+  response.write(': connected\n\n')
+
+  return new Promise<void>(resolve => {
+    const unsubscribe = useJobStore().subscribeJobEvents(jobEvent => {
+      response.write(`data: ${JSON.stringify(jobEvent)}\n\n`)
+    })
+
+    event.node.req.on('close', () => {
+      unsubscribe()
+      resolve()
+    })
+  })
+})
+```
+
+Future transport implementations may include:
 
 ```txt
 createHttpJobTransport()
@@ -914,13 +1023,13 @@ If the mock event stream is the authoritative source of truth, the mutation may 
 The Nuxt app may create a singleton kernel through a client plugin.
 
 ```ts
-// apps/nuxt-dashboard/plugins/job-kernel.client.ts
-import { createJobKernel } from '@demo/job-kernel'
-import { createMockJobTransport } from '@demo/job-kernel/transport'
+// examples/nuxt-job-monitor/plugins/job-kernel.client.ts
+import { defineNuxtPlugin } from 'nuxt/app'
+import { createJobKernel, createNuxtJobTransport } from '../job-kernel'
 
 export default defineNuxtPlugin(() => {
   const kernel = createJobKernel({
-    transport: createMockJobTransport(),
+    transport: createNuxtJobTransport(),
   })
 
   kernel.actions.start()
@@ -942,7 +1051,9 @@ SSR snapshot support can be explored in a later phase.
 ### 15.2 Composable wrapper
 
 ```ts
-// apps/nuxt-dashboard/composables/useJobKernel.ts
+// examples/nuxt-job-monitor/composables/useJobKernel.ts
+import { useNuxtApp } from 'nuxt/app'
+
 export function useJobKernel() {
   const { $jobKernel } = useNuxtApp()
   return $jobKernel
@@ -1030,7 +1141,8 @@ It should implement a simplified version using ordinary Vue/Nuxt ownership:
 ```txt
 ref
 computed
-useAsyncData / useFetch
+transport calls
+EventSource subscription through transport
 manual refresh
 component/composable-owned state
 ```
@@ -1135,7 +1247,9 @@ Vue components receive readonly refs through @signal-kernel/vue
 ### 18.2 Event stream update
 
 ```txt
-mock transport emits job_progressed
+server-side mock store emits job_progressed
+Nuxt SSE route writes data: JobEvent
+createNuxtJobTransport parses EventSource message
 kernel.applyJobEvent(event)
 jobs signal is updated
 filteredJobs recomputes
@@ -1283,9 +1397,9 @@ Build the framework-agnostic graph first.
 Deliverables:
 
 ```txt
-packages/job-kernel
+examples/nuxt-job-monitor/job-kernel
 types
-mock transport
+in-memory mock transport/store
 signals
 computed values
 event reducer
@@ -1303,7 +1417,35 @@ no Vue/Nuxt dependency
 
 ---
 
-### Phase 2: Nuxt Dashboard
+### Phase 2: Nuxt Server Mock Transport
+
+Goal:
+
+Move the mock data source behind a real Nuxt/Nitro HTTP boundary while keeping backend infrastructure fake.
+
+Deliverables:
+
+```txt
+server-side mock job store
+GET /api/jobs
+POST /api/jobs/:id/retry
+POST /api/jobs/:id/cancel
+GET /api/jobs/events as SSE
+createNuxtJobTransport()
+```
+
+Acceptance criteria:
+
+```txt
+client transport fetches jobs through Nuxt API
+retry/cancel call Nuxt server routes
+SSE emits JobEvent objects
+kernel does not know whether events come from mock, SSE, or WebSocket
+```
+
+---
+
+### Phase 3: Nuxt Dashboard
 
 Goal:
 
@@ -1312,7 +1454,7 @@ Build the Nuxt 3 app that consumes the job kernel.
 Deliverables:
 
 ```txt
-apps/nuxt-dashboard
+examples/nuxt-job-monitor
 Nuxt plugin
 useJobKernel composable
 JobSummary component
@@ -1337,7 +1479,7 @@ retry/cancel actions work
 
 ---
 
-### Phase 3: Vue-Owned Comparison Page
+### Phase 4: Vue-Owned Comparison Page
 
 Goal:
 
@@ -1361,7 +1503,45 @@ kernel-owned page clearly shows the external graph boundary
 
 ---
 
-### Phase 4: Snapshot / SSR Exploration
+### Phase 5: Async Correctness Refinement
+
+Goal:
+
+Make the realtime and mutation semantics explicit enough to teach from the code.
+
+Deliverables:
+
+```txt
+document optimistic event vs server event policy
+optional event id or source field for dedupe
+optional SSE connection status in graph
+transport-level error handling for EventSource
+richer business computed values
+```
+
+Possible derived state:
+
+```txt
+canRetry(job)
+canCancel(job)
+stuckJobs
+slaBreachedJobs
+queueHealth
+lastEventAt
+connectionStatus
+```
+
+Acceptance criteria:
+
+```txt
+retry/cancel behavior is easy to explain
+duplicated optimistic/server events cannot confuse the graph
+connection health can be rendered without moving stream state into Vue
+```
+
+---
+
+### Phase 6: Snapshot / SSR Exploration
 
 Goal:
 
@@ -1387,7 +1567,7 @@ This phase is not required for the first version.
 
 ---
 
-### Phase 5: Future AI Workflow Extension
+### Phase 7: Future AI Workflow Extension
 
 Goal:
 
