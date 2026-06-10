@@ -1,4 +1,5 @@
 export { createJobKernel, type JobKernel } from "./createJobKernel";
+export { createJobKernelSnapshotScope } from "./snapshot";
 export { createMockJobStore, type MockJobStore } from "./transport/mockJobStore";
 export { createMockJobTransport } from "./transport/mockJobTransport";
 export { createNuxtJobTransport } from "./transport/nuxtJobTransport";

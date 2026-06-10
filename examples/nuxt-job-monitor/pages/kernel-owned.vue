@@ -1,6 +1,13 @@
 <script setup lang="ts">
+import {
+  captureSnapshot,
+  decodeJsonSnapshot,
+  encodeJsonSnapshot,
+  restoreSnapshot,
+} from "@signal-kernel/snapshot";
 import { useResource, useSignalValue } from "@signal-kernel/vue";
-import type { JobStatus } from "../job-kernel";
+import { ref } from "vue";
+import { createJobKernelSnapshotScope, type JobStatus } from "../job-kernel";
 
 const kernel = useJobKernel();
 
@@ -13,6 +20,8 @@ const runtimeHealth = useSignalValue(kernel.computed.runtimeHealth);
 const filter = useSignalValue(kernel.state.statusFilter);
 const jobsResource = useResource(kernel.resources.jobsResource);
 const jobsStatus = jobsResource.status;
+const snapshotText = ref("");
+const snapshotReport = ref("No snapshot captured");
 
 function setFilter(nextFilter: JobStatus | "all") {
   kernel.actions.setStatusFilter(nextFilter);
@@ -32,6 +41,35 @@ function cancelJob(jobId: string) {
 
 function reloadJobs() {
   void jobsResource.reload();
+}
+
+function captureGraphSnapshot() {
+  const snapshot = captureSnapshot(createJobKernelSnapshotScope(kernel), {
+    metadata: {
+      capturedFrom: "kernel-owned",
+      demo: "nuxt-job-monitor",
+    },
+  });
+
+  snapshotText.value = encodeJsonSnapshot(snapshot);
+  snapshotReport.value = `Captured ${snapshot.nodes.length} nodes`;
+}
+
+function resetGraphState() {
+  kernel.actions.stop();
+  kernel.actions.resetGraphState();
+  snapshotReport.value = "Graph reset; event stream stopped";
+}
+
+function restoreGraphSnapshot() {
+  if (!snapshotText.value) return;
+
+  const snapshot = decodeJsonSnapshot(snapshotText.value);
+  const report = restoreSnapshot(createJobKernelSnapshotScope(kernel), snapshot);
+
+  kernel.actions.start();
+  snapshotReport.value =
+    `Restored ${report.restored.length} nodes; skipped ${report.skipped.length}`;
 }
 </script>
 
@@ -69,6 +107,36 @@ function reloadJobs() {
           <StatusFilter :value="filter" @change="setFilter" />
         </section>
 
+        <section class="panel snapshot-panel">
+          <div>
+            <p class="eyebrow">Snapshot handoff</p>
+            <p class="status">{{ snapshotReport }}</p>
+          </div>
+
+          <div class="snapshot-actions">
+            <button class="button" type="button" @click="captureGraphSnapshot">
+              Capture
+            </button>
+            <button class="button" type="button" @click="resetGraphState">
+              Reset
+            </button>
+            <button
+              class="button primary"
+              type="button"
+              :disabled="!snapshotText"
+              @click="restoreGraphSnapshot"
+            >
+              Restore
+            </button>
+          </div>
+
+          <textarea
+            v-model="snapshotText"
+            class="snapshot-text"
+            spellcheck="false"
+          />
+        </section>
+
         <section class="layout">
           <article class="panel">
             <h2 class="panel-title">Jobs</h2>
@@ -90,3 +158,31 @@ function reloadJobs() {
     </div>
   </main>
 </template>
+
+<style scoped>
+.snapshot-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.snapshot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.snapshot-text {
+  border: 1px solid #c6d4ca;
+  border-radius: 8px;
+  color: #203728;
+  font:
+    12px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  min-height: 120px;
+  padding: 10px;
+  resize: vertical;
+  width: 100%;
+}
+</style>

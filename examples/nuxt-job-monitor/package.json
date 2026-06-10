@@ -12,6 +12,7 @@
   "dependencies": {
     "@signal-kernel/async-runtime": "workspace:*",
     "@signal-kernel/core": "workspace:*",
+    "@signal-kernel/snapshot": "workspace:*",
     "@signal-kernel/vue": "workspace:*",
     "h3": "^1.15.11",
     "nuxt": "^3.21.0",

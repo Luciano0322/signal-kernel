@@ -306,6 +306,15 @@ export function createJobKernel(options: CreateJobKernelOptions) {
     });
   }
 
+  function resetGraphState() {
+    jobs.set([]);
+    logs.set([]);
+    selectedJobId.set(null);
+    statusFilter.set("all");
+    lastEventAt.set(null);
+    streamError.set(undefined);
+  }
+
   async function retryJob(jobId: string) {
     applyOptimisticRetry(jobId);
 
@@ -367,6 +376,7 @@ export function createJobKernel(options: CreateJobKernelOptions) {
       retryJob,
       cancelJob,
       dispatch: dispatchJobEvent,
+      resetGraphState,
       start,
       stop,
     },

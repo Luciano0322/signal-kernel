@@ -1,12 +1,6 @@
 {
+  "extends": "./tsconfig.nuxt.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
     "types": ["vitest/globals", "node"]
-  },
-  "include": ["job-kernel/**/*.ts", "vitest.config.ts"]
+  }
 }

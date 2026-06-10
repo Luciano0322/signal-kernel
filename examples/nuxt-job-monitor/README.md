@@ -47,3 +47,13 @@ This example is not a claim that Vue reactivity is insufficient. It demonstrates
 The retry action applies an optimistic `job_retrying` event before the server confirms the action. The cancel action applies a local confirmation after the server call succeeds. Server-Sent Events may still deliver the same status transition afterward; the graph reducer keeps these job status events idempotent.
 
 The stream connection status is part of the graph on the kernel-owned page. Nuxt owns the HTTP/SSE route, `createNuxtJobTransport()` owns the browser transport, and `createJobKernel()` owns how events affect business state.
+
+## Snapshot Handoff
+
+The kernel-owned page also exposes a small snapshot handoff panel:
+
+- `Capture` serializes the explicit job graph state with `@signal-kernel/snapshot`.
+- `Reset` clears writable graph state and closes the current event stream.
+- `Restore` restores writable signals into the same compatible graph and starts the SSE connection again.
+
+The snapshot scope intentionally restores only writable signals such as jobs, logs, selected job, filter, and last event time. Computed values are captured for inspection but recompute after restore. Resource and stream nodes are captured as inspect-only metadata; the snapshot does not serialize `EventSource`, promises, timers, abort controllers, or any live async work.

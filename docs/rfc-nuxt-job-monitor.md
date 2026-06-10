@@ -1049,7 +1049,7 @@ export default defineNuxtPlugin(() => {
 
 The first version should use `.client.ts` to avoid Nuxt SSR and renderer hydration complexity.
 
-Snapshot handoff can be explored in a later phase as a step toward SSR-oriented graph transfer, but it should not be framed as a complete Nuxt hydration layer.
+Phase 6 can add an explicit snapshot handoff panel on top of the client graph. That handoff should validate graph-state transfer and restore behavior, but it should not be framed as a complete Nuxt hydration layer.
 
 ---
 
@@ -1625,6 +1625,7 @@ no snapshot version migration policy
 ```
 
 This phase is not required for the first version.
+Once implemented, it should remain a manual demo path rather than a hidden renderer lifecycle.
 
 ---
 

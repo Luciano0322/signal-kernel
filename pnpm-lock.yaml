@@ -235,6 +235,9 @@ importers:
       '@signal-kernel/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@signal-kernel/snapshot':
+        specifier: workspace:*
+        version: link:../../packages/snapshot
       '@signal-kernel/vue':
         specifier: workspace:*
         version: link:../../packages/vue
