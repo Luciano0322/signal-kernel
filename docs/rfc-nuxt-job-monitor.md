@@ -1047,9 +1047,9 @@ export default defineNuxtPlugin(() => {
 })
 ```
 
-The first version should use `.client.ts` to avoid SSR and hydration complexity.
+The first version should use `.client.ts` to avoid Nuxt SSR and renderer hydration complexity.
 
-SSR snapshot support can be explored in a later phase.
+Snapshot handoff can be explored in a later phase as a step toward SSR-oriented graph transfer, but it should not be framed as a complete Nuxt hydration layer.
 
 ---
 
@@ -1582,26 +1582,46 @@ connection health can be rendered without moving stream state into Vue
 
 ---
 
-### Phase 6: Snapshot / SSR Exploration
+### Phase 6: Snapshot Handoff Exploration
 
 Goal:
 
-Extend the demo toward signal-kernel snapshot support.
+Validate that `@signal-kernel/snapshot` can transfer explicit job graph state across runtime boundaries before live async work is reconnected.
+
+This phase is a step toward an SSR route, but it is not a full Nuxt SSR hydration implementation.
 
 Deliverables:
 
 ```txt
-optional snapshot export
-optional hydration example
-documentation of SSR boundary
+createJobKernelSnapshotScope(kernel)
+capture current kernel graph
+encode snapshot document as JSON
+decode snapshot document from JSON
+restore snapshot into a compatible job kernel
+computed values recompute after restore
+SSE reconnects after restore and continues updating graph
+README documents snapshot as transfer boundary, not live stream resume
 ```
 
 Acceptance criteria:
 
 ```txt
-kernel graph can produce a serializable snapshot document
-Nuxt can restore an explicit initial snapshot into the client graph
-client event stream continues after hydration
+jobs, logs, selectedJobId, statusFilter, and lastEventAt can be restored
+jobSummary, filteredJobListItems, and runtimeHealth recompute after restore
+resource and stream state are captured for inspection only
+live SSE connection is restarted after restore
+the demo clearly states snapshot restores graph state, not active async work
+```
+
+Non-goals:
+
+```txt
+no Nuxt SSR payload injection yet
+no renderer hydration helper
+no EventSource, socket, promise, timer, or AbortController serialization
+no pending request continuation
+no automatic resource seeding beyond explicit writable signal restore
+no snapshot version migration policy
 ```
 
 This phase is not required for the first version.
