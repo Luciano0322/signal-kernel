@@ -429,6 +429,7 @@ The examples are used to validate runtime boundaries before extracting broader p
 | `examples/devops-runtime` | DevOps-style runtime decisions modeled as a reactive graph |
 | `examples/micro-frontend-runtime` | Shared graph contract consumed by React and Vue islands |
 | `examples/next-ai-chatbot` | Streaming chatbot flow with `createStreamResource` and the React adapter |
+| `examples/nuxt-job-monitor` | Nuxt job monitor comparing Vue-owned state with an external signal-kernel graph |
 | `examples/reactive-proxy` | Nginx-like route / upstream / health / policy decisions as graph state |
 | `examples/ai-memory-correctness` | AI memory recall, prompt derivation, retention, rollback, and inspection snapshots |
 | `examples/server-graph-transfer` | Server-side graph state encoded as JSON and restored into a compatible client graph |
