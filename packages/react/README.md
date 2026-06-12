@@ -21,14 +21,14 @@ pnpm add @signal-kernel/react @signal-kernel/core @signal-kernel/async-runtime
 
 ```tsx
 import { computed, signal } from "@signal-kernel/core";
-import { useComputedValue, useSignalValue } from "@signal-kernel/react";
+import { useKernelValue } from "@signal-kernel/react";
 
 const count = signal(0);
 const doubled = computed(() => count.get() * 2);
 
 export function Counter() {
-  const value = useSignalValue(count);
-  const label = useComputedValue(doubled);
+  const value = useKernelValue(count);
+  const label = useKernelValue(doubled);
 
   return (
     <button onClick={() => count.set(value + 1)}>
@@ -37,6 +37,10 @@ export function Counter() {
   );
 }
 ```
+
+`useKernelValue()` is the preferred bridge for a single readable signal-kernel graph value. It accepts values that expose `get()` and `peek()`, including signals and computed values.
+
+`useSignalValue()` and `useComputedValue()` remain available for compatibility and for call sites that want a signal-specific or computed-specific readability hint.
 
 ## Reading Multiple Values
 
@@ -75,12 +79,13 @@ For low-level readable sources, `useReadableValue()` supports different read str
 
 Most users should prefer the higher-level hooks:
 
+- `useKernelValue()` for single readable graph values
 - `useSignalValue()` for signals
 - `useComputedValue()` for computed values
 - `useResource()` for async resources
 - `useStreamResource()` for streaming async resources
 
-`useComputedValue()` intentionally reads computed values through `get()` so lazy computed values can be initialized correctly when first observed by React.
+`useKernelValue()` and `useComputedValue()` intentionally read through `get()` so lazy computed values can be initialized correctly when first observed by React. `useSignalValue()` remains available when a call site specifically wants the signal-oriented `peek()` snapshot strategy.
 
 `useReadableValue()` is exported as an advanced bridge for adapter authors and unusual readable-like sources. Prefer the dedicated hooks in application code. Choosing the wrong `snapshot` or `track` strategy can miss graph dependencies, force lazy values too early, or make React render from a different read path than the one used for subscription.
 

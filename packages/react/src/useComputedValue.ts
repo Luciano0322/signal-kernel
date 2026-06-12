@@ -1,9 +1,6 @@
-import { useReadableValue } from "./readable.js";
-import { Readable } from "./types.js";
+import { useKernelValue } from "./useKernelValue.js";
+import type { Readable } from "./types.js";
 
 export function useComputedValue<T>(src: Readable<T>): T {
-  return useReadableValue(src, {
-    snapshot: "get",
-    track: "get"
-  });
+  return useKernelValue(src);
 }

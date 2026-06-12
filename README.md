@@ -403,8 +403,8 @@ flowchart TD
 
 | Package                | APIs                                                                                    | Description                                        |
 | ---------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `@signal-kernel/react` | `useSignalValue`, `useComputedValue`, `useReactive`, `useResource`, `useStreamResource` | Reads existing graph values from React components  |
-| `@signal-kernel/vue`   | `useSignalValue`, `useComputedValue`, `useReactive`, `useResource`, `useStreamResource` | Exposes existing graph values as readonly Vue refs |
+| `@signal-kernel/react` | `useKernelValue`, `useReactive`, `useResource`, `useStreamResource`                     | Reads existing graph values from React components  |
+| `@signal-kernel/vue`   | `useKernelValue`, `useReactive`, `useResource`, `useStreamResource`                     | Exposes existing graph values as readonly Vue refs |
 
 ### Snapshot
 
