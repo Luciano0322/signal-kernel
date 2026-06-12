@@ -63,7 +63,7 @@ Derived business logic should be created in the runtime graph first, then read f
 ```ts
 const doubled = computed(() => count.get() * 2);
 
-const doubledRef = useComputedValue(doubled);
+const doubledRef = useKernelValue(doubled);
 ```
 
 The initial adapter should avoid making this the main path:
@@ -78,9 +78,9 @@ That pattern creates graph nodes inside Vue scope and makes the adapter look lik
 
 ## Proposed API
 
-### 1. `useSignalValue(src)`
+### 1. `useKernelValue(src)`
 
-Purpose: expose an existing readable graph value as a readonly Vue ref.
+Purpose: expose an existing signal-kernel readable graph value as a readonly Vue ref.
 
 ```ts
 type Readable<T> = {
@@ -88,6 +88,60 @@ type Readable<T> = {
   peek(): T;
 };
 
+function useKernelValue<T>(src: Readable<T>): Readonly<Ref<T>>;
+```
+
+Example:
+
+```ts
+const count = signal(0);
+const doubled = computed(() => count.get() * 2);
+
+const countRef = useKernelValue(count);
+const doubledRef = useKernelValue(doubled);
+```
+
+`useKernelValue()` is the preferred public name for the shared readable bridge.
+It intentionally accepts the structural readable protocol rather than only writable signals.
+
+This matters more after snapshot handoff enters the architecture:
+
+```txt
+snapshot restores writable graph state
+computed graph values recompute from restored state
+Vue consumes readable graph values through the adapter
+```
+
+If the adapter continues to teach `useSignalValue()` as the primary API, examples such as this become semantically confusing:
+
+```ts
+const summary = useSignalValue(kernel.computed.jobSummary);
+```
+
+The code is technically valid because computed values are readable graph nodes, but the name suggests that the source must be a signal. `useKernelValue()` describes the actual boundary more accurately: Vue is reading a value from the signal-kernel graph.
+
+`useKernelValue()` should not accept resource or stream resource tuples. Resources and stream resources include async metadata and control surfaces, so they should continue to use `useResource()` and `useStreamResource()`.
+
+Implementation requirements:
+
+* Initialize the ref from `src.peek()`.
+* Use `createEffect()` to track `src.get()`.
+* Use `shallowRef()` for the Vue snapshot.
+* Use `onScopeDispose()` to stop the adapter subscription.
+* Do not dispose the source graph node.
+
+Compatibility:
+
+* `useSignalValue()` remains supported as a compatibility alias for readable graph values.
+* `useComputedValue()` remains supported as a compatibility alias for computed-readable examples.
+* New documentation and examples should prefer `useKernelValue()`.
+* Do not remove the older names during this naming refinement.
+
+### 2. `useSignalValue(src)`
+
+Purpose: expose an existing readable graph value as a readonly Vue ref.
+
+```ts
 function useSignalValue<T>(src: Readable<T>): Readonly<Ref<T>>;
 ```
 
@@ -99,15 +153,10 @@ const count = signal(0);
 const countRef = useSignalValue(count);
 ```
 
-Implementation requirements:
+`useSignalValue()` should delegate to the same implementation as `useKernelValue()`.
+It remains useful for existing code and for signal-specific snippets, but it should no longer be the primary API name in new guide material.
 
-* Initialize the ref from `src.peek()`.
-* Use `createEffect()` to track `src.get()`.
-* Use `shallowRef()` for the Vue snapshot.
-* Use `onScopeDispose()` to stop the adapter subscription.
-* Do not dispose the source signal.
-
-### 2. `useComputedValue(src)`
+### 3. `useComputedValue(src)`
 
 Purpose: expose an existing computed value as a readonly Vue ref.
 
@@ -115,11 +164,47 @@ Purpose: expose an existing computed value as a readonly Vue ref.
 function useComputedValue<T>(src: Readable<T>): Readonly<Ref<T>>;
 ```
 
-`useComputedValue()` should share the same readable bridge as `useSignalValue()`.
+`useComputedValue()` should share the same readable bridge as `useKernelValue()`.
+
+This API is still semantically useful, but it should be treated as an ergonomic name rather than a separate graph capability.
+
+When a developer writes:
+
+```ts
+const total = useComputedValue(cartTotal);
+```
+
+the adapter is not receiving a fundamentally different kind of subscription from:
+
+```ts
+const total = useKernelValue(cartTotal);
+```
+
+Both calls read the same structural readable protocol:
+
+```ts
+get(): T
+peek(): T
+```
+
+The difference is only what the call site wants to communicate.
+`useComputedValue()` tells the reader that the source is expected to be a computed graph node.
+`useKernelValue()` tells the reader that Vue is consuming a value owned by signal-kernel, regardless of whether that value is a signal or computed value.
+
+For local component examples, `useComputedValue()` can remain a convenient readability hint.
+For examples involving snapshot restore, SSR transfer, graph handoff, or framework-independent business logic, `useKernelValue()` should be preferred because it describes the architectural boundary more accurately.
+
+This keeps the developer-facing mental model flexible without introducing two runtime semantics:
+
+```txt
+useKernelValue     canonical readable graph bridge
+useSignalValue     compatibility / signal-specific alias
+useComputedValue   compatibility / computed-specific alias
+```
 
 It should not create a new core computed value from a function in the initial release.
 
-### 3. `useReactive(read)`
+### 4. `useReactive(read)`
 
 Purpose: observe a reactive read scope that may depend on multiple existing graph values.
 
@@ -139,7 +224,7 @@ const state = useReactive(() => ({
 
 `useReactive()` should read existing graph state. It should not create runtime state, async policies, or derived business rules.
 
-### 4. `useResource(resourceTuple)`
+### 5. `useResource(resourceTuple)`
 
 Purpose: expose a `createResource()` tuple as Vue refs while keeping async semantics in `@signal-kernel/async-runtime`.
 
@@ -165,7 +250,7 @@ Implementation requirements:
 * Do not add cache, retry, refetch, or cancellation policy.
 * Do not cancel automatically on Vue scope disposal.
 
-### 5. `useStreamResource(resourceTuple)`
+### 6. `useStreamResource(resourceTuple)`
 
 Purpose: expose a `createStreamResource()` tuple as Vue refs while keeping stream semantics in `@signal-kernel/async-runtime`.
 
@@ -256,18 +341,43 @@ Do not write the complete test matrix first. Add one public behavior test, make 
 
 Tests should verify public adapter behavior, not internals.
 
+### TDD tracer bullets for naming refinement
+
+The `useKernelValue()` naming refinement should be implemented with vertical slices, not a broad rewrite.
+
+Recommended red-green-refactor order:
+
+1. Add one failing public test showing `useKernelValue(signal)` exposes the initial `peek()` snapshot and updates after signal writes.
+2. Add the minimal implementation by delegating to the shared readable bridge.
+3. Add one failing public test showing `useKernelValue(computed)` reads recomputed graph values after a dependency changes.
+4. Keep `useSignalValue()` and `useComputedValue()` passing as compatibility aliases.
+5. Add or update one example or README snippet to use `useKernelValue()`.
+
+Do not change resource hooks in the same first cycle.
+
+### `useKernelValue()`
+
+* Initial ref value comes from `peek()`.
+* Updating a source signal updates the Vue ref.
+* Existing computed values can be read as Vue refs.
+* Dependency changes update computed Vue refs.
+* Disposing the Vue scope stops future ref updates.
+* Disposing the Vue scope does not dispose the source graph node.
+
 ### `useSignalValue()`
 
 * Initial ref value comes from `peek()`.
 * Updating the source signal updates the Vue ref.
 * Disposing the Vue scope stops future ref updates.
 * Disposing the Vue scope does not dispose the source signal.
+* Remains a compatibility alias for `useKernelValue()`.
 
 ### `useComputedValue()`
 
 * Existing computed values can be read as Vue refs.
 * Dependency changes update the Vue ref.
 * The adapter does not create a new computed value from a function.
+* Remains a compatibility alias for `useKernelValue()`.
 
 ### `useReactive()`
 
@@ -322,6 +432,7 @@ That remains an escape hatch, not the main adapter API.
 
 Included:
 
+* `useKernelValue()`
 * `useSignalValue()`
 * `useComputedValue()`
 * `useReactive()`
@@ -345,5 +456,11 @@ Excluded:
 Start with a minimal Vue scope bridge over existing signal-kernel graph nodes.
 
 Expose snapshots as Vue refs because that is the idiomatic Vue consumption unit.
+
+New guide material should present `useKernelValue()` as the primary way to read a single signal-kernel readable graph value from Vue.
+
+This is a naming-policy decision, not a behavior split. `useSignalValue()` and `useComputedValue()` remain available for compatibility, for older examples, and for call sites that want a signal-specific or computed-specific readability cue. They should be treated as names over the same readable bridge rather than distinct graph semantics.
+
+Do not make `useComputedValue()` more powerful than `useKernelValue()`. If a value can be read through `useComputedValue()`, it should also be readable through `useKernelValue()` as long as it satisfies the same `get()` / `peek()` readable protocol.
 
 Keep graph semantics in core, async semantics in async-runtime, and Vue rendering integration in the adapter.

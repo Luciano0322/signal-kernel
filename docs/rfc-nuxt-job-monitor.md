@@ -99,6 +99,29 @@ const summary = useSignalValue(kernel.computed.jobSummary)
 const selectedJob = useSignalValue(kernel.computed.selectedJob)
 ```
 
+This RFC was originally written against the existing Vue adapter API. After the snapshot handoff phase, this naming becomes slightly misleading: Vue is not reading only writable signals here. It is reading signal-kernel readable graph values, including computed view models that recompute after restored snapshot state.
+
+Follow-up adapter RFC work should introduce `useKernelValue()` as the preferred API name for single readable graph values:
+
+```ts
+const jobs = useKernelValue(kernel.computed.filteredJobs)
+const summary = useKernelValue(kernel.computed.jobSummary)
+const selectedJob = useKernelValue(kernel.computed.selectedJob)
+```
+
+`useSignalValue()` can remain as a compatibility alias, but new docs should avoid teaching it as the primary bridge for computed graph values.
+
+`useComputedValue()` could also read these computed values, but it is not the preferred name for this example.
+The Nuxt job monitor is meant to demonstrate a graph handoff boundary:
+
+```txt
+server snapshot restores writable state
+computed view models recompute from that state
+Vue renders readable graph values
+```
+
+In that context, `useKernelValue()` is clearer than both `useSignalValue()` and `useComputedValue()` because the important idea is not the concrete node kind. The important idea is that Nuxt/Vue is consuming values owned by the signal-kernel graph.
+
 The intended boundary is:
 
 ```txt
@@ -1098,6 +1121,15 @@ function reloadJobs() {
     <JobList :jobs="jobs" />
   </section>
 </template>
+```
+
+This snippet uses the current adapter name. Once the adapter naming refinement lands, the preferred version should read single graph values through `useKernelValue()` while keeping resources on `useResource()`:
+
+```ts
+const jobs = useKernelValue(kernel.computed.filteredJobs)
+const summary = useKernelValue(kernel.computed.jobSummary)
+const filter = useKernelValue(kernel.state.statusFilter)
+const jobsResource = useResource(kernel.resources.jobsResource)
 ```
 
 ---

@@ -68,7 +68,7 @@ Derived state should be created through `computed()` in the runtime graph, then 
 const doubled = computed(() => count.get() * 2);
 
 function Counter() {
-  const value = useComputedValue(doubled);
+  const value = useKernelValue(doubled);
   return <div>{value}</div>;
 }
 ```
@@ -116,9 +116,9 @@ render
 
 ## Proposed API
 
-### 1. `useSignalValue(signal)`
+### 1. `useKernelValue(src)`
 
-Purpose: read an existing signal-like readable value and re-render when it changes.
+Purpose: read an existing signal-kernel readable graph value and re-render when it changes.
 
 ```ts
 type Readable<T> = {
@@ -126,6 +126,61 @@ type Readable<T> = {
   peek(): T;
 };
 
+function useKernelValue<T>(src: Readable<T>): T;
+```
+
+Example:
+
+```tsx
+const count = signal(0);
+const doubled = computed(() => count.get() * 2);
+
+function Counter() {
+  const value = useKernelValue(count);
+  const label = useKernelValue(doubled);
+
+  return (
+    <button onClick={() => count.set(value + 1)}>
+      Count: {value}, doubled: {label}
+    </button>
+  );
+}
+```
+
+`useKernelValue()` is the preferred public name for the shared readable bridge.
+It accepts the structural readable protocol used by signals and computed values:
+
+```ts
+get(): T
+peek(): T
+```
+
+This naming becomes important once snapshot handoff is part of the architecture. Snapshot restore writes explicit signal state back into a compatible graph, computed values recompute from that restored state, and framework adapters read the resulting graph values. The adapter is not reading only writable signals; it is reading signal-kernel graph values.
+
+The old primary name can make this usage look inconsistent:
+
+```tsx
+const summary = useSignalValue(kernel.computed.jobSummary);
+```
+
+That code can work because computed values are readable graph nodes, but the name suggests a signal-only API. `useKernelValue()` keeps the React adapter aligned with the project boundary: React renders values owned by signal-kernel.
+
+`useKernelValue()` should not accept resource or stream resource tuples. Resources and stream resources include async metadata and control surfaces, so they should continue to use `useResource()` and `useStreamResource()`.
+
+Compatibility:
+
+* `useSignalValue()` remains supported as a compatibility alias for readable graph values.
+* `useComputedValue()` remains supported as a compatibility alias for computed-readable examples.
+* New documentation and examples should prefer `useKernelValue()`.
+* Do not remove the older names during this naming refinement.
+
+---
+
+### 2. `useSignalValue(signal)`
+
+Purpose: read an existing signal-like readable value and re-render when it changes.
+
+```ts
 function useSignalValue<T>(src: Readable<T>): T;
 ```
 
@@ -145,9 +200,12 @@ function Counter() {
 }
 ```
 
+`useSignalValue()` should delegate to the same implementation as `useKernelValue()`.
+It remains useful for existing code and for signal-specific snippets, but it should no longer be the primary API name in new guide material.
+
 ---
 
-### 2. `useComputedValue(computed)`
+### 3. `useComputedValue(computed)`
 
 Purpose: read an existing computed value and re-render when it is invalidated and its value changes.
 
@@ -155,7 +213,43 @@ Purpose: read an existing computed value and re-render when it is invalidated an
 function useComputedValue<T>(src: Readable<T>): T;
 ```
 
-`useComputedValue` is intentionally a thin wrapper over the same readable subscription mechanism used by `useSignalValue`.
+`useComputedValue` is intentionally a thin wrapper over the same readable subscription mechanism used by `useKernelValue`.
+
+This API is still semantically useful, but it should be treated as an ergonomic name rather than a separate graph capability.
+
+When a developer writes:
+
+```tsx
+const total = useComputedValue(cartTotal);
+```
+
+the adapter is not receiving a fundamentally different kind of subscription from:
+
+```tsx
+const total = useKernelValue(cartTotal);
+```
+
+Both calls read the same structural readable protocol:
+
+```ts
+get(): T
+peek(): T
+```
+
+The difference is only what the call site wants to communicate.
+`useComputedValue()` tells the reader that the source is expected to be a computed graph node.
+`useKernelValue()` tells the reader that React is consuming a value owned by signal-kernel, regardless of whether that value is a signal or computed value.
+
+For local component examples, `useComputedValue()` can remain a convenient readability hint.
+For examples involving snapshot restore, SSR transfer, graph handoff, or framework-independent business logic, `useKernelValue()` should be preferred because it describes the architectural boundary more accurately.
+
+This keeps the developer-facing mental model flexible without introducing two runtime semantics:
+
+```txt
+useKernelValue     canonical readable graph bridge
+useSignalValue     compatibility / signal-specific alias
+useComputedValue   compatibility / computed-specific alias
+```
 
 Example:
 
@@ -172,7 +266,7 @@ function Counter() {
 
 ---
 
-### 3. `useReactive(read)`
+### 4. `useReactive(read)`
 
 Purpose: read a reactive scope from React when a component needs to observe multiple existing graph values at once.
 
@@ -198,7 +292,7 @@ function UserPanel() {
 
 ---
 
-### 4. `useResource(resourceTuple)`
+### 5. `useResource(resourceTuple)`
 
 Purpose: read a `createResource()` tuple in React while keeping async semantics in the runtime.
 
@@ -252,7 +346,7 @@ This ensures React re-renders not only when the value changes, but also when asy
 
 ---
 
-### 5. `useStreamResource(resourceTuple)`
+### 6. `useStreamResource(resourceTuple)`
 
 Purpose: read a `createStreamResource()` tuple in React while keeping stream semantics in the runtime.
 
@@ -394,6 +488,7 @@ packages/
     src/
       index.ts
       readable.ts
+      useKernelValue.ts
       useSignalValue.ts
       useComputedValue.ts
       useReactive.ts
@@ -413,6 +508,7 @@ packages/
 
 ```ts
 import {
+  useKernelValue,
   useSignalValue,
   useComputedValue,
   useReactive,
@@ -484,7 +580,7 @@ Examples should be framework-minimal and focus on preserving runtime semantics.
 const count = signal(0);
 
 function Counter() {
-  const value = useSignalValue(count);
+  const value = useKernelValue(count);
 
   return (
     <button onClick={() => count.set(value + 1)}>
@@ -501,7 +597,7 @@ const count = signal(0);
 const doubled = computed(() => count.get() * 2);
 
 function CounterLabel() {
-  const value = useComputedValue(doubled);
+  const value = useKernelValue(doubled);
 
   return <div>Doubled: {value}</div>;
 }
@@ -579,18 +675,43 @@ Do not write the full test matrix first and then implement the adapter in one pa
 
 Tests should verify behavior through the public adapter APIs. They should not assert private helper calls, internal React hook structure, or signal-kernel graph internals.
 
+### TDD tracer bullets for naming refinement
+
+The `useKernelValue()` naming refinement should be implemented with vertical slices, not a broad rewrite.
+
+Recommended red-green-refactor order:
+
+1. Add one failing public test showing `useKernelValue(signal)` reads the initial snapshot and re-renders after signal writes.
+2. Add the minimal implementation by delegating to the shared readable bridge.
+3. Add one failing public test showing `useKernelValue(computed)` reads recomputed graph values after a dependency changes.
+4. Keep `useSignalValue()` and `useComputedValue()` passing as compatibility aliases.
+5. Add or update one README/example snippet to use `useKernelValue()`.
+
+Do not change resource hooks in the same first cycle.
+
+### `useKernelValue()`
+
+* Initial snapshot comes from the readable snapshot strategy.
+* Signal updates cause React to receive a fresh snapshot.
+* Existing computed values can be read.
+* Dependency changes refresh computed rendered snapshots.
+* Unmounting stops the adapter subscription.
+* Unmounting does not dispose the source graph node.
+
 ### `useSignalValue()`
 
 * Initial snapshot comes from `peek()`.
 * Signal updates cause React to receive a fresh snapshot.
 * Unmounting stops the adapter subscription.
 * Unmounting does not dispose the source signal.
+* Remains a compatibility alias for `useKernelValue()`.
 
 ### `useComputedValue()`
 
 * Existing computed values can be read.
 * Dependency changes refresh the rendered snapshot.
 * The adapter does not create a new computed value from a function.
+* Remains a compatibility alias for `useKernelValue()`.
 
 ### `useReactive()`
 
@@ -638,17 +759,18 @@ Potential issue:
 For the initial version, the more explicit names are safer:
 
 ```ts
+useKernelValue()
 useSignalValue()
 useComputedValue()
 ```
 
-Shorter names can be introduced later if documentation clearly states that they read existing graph nodes.
+`useKernelValue()` is the preferred name after the snapshot handoff work because it describes a framework reading from signal-kernel rather than reading only signals. `useSignalValue()` and `useComputedValue()` should remain compatibility names over the same readable bridge.
 
 ### 2. Should `useReactive()` be public?
 
 `useReactive()` is useful for reading multiple graph values and for implementing resource hooks.
 
-However, it is more flexible and easier to misuse than `useSignalValue()`.
+However, it is more flexible and easier to misuse than `useKernelValue()`.
 
 If exposed publicly, documentation should emphasize that it reads existing graph state and should not be treated as a local state factory.
 
@@ -683,6 +805,7 @@ For the initial release, tuple-preserving APIs are preferred because they stay c
 Start with a minimal React lifecycle bridge:
 
 ```ts
+useKernelValue()
 useSignalValue()
 useComputedValue()
 useReactive()
@@ -712,6 +835,12 @@ Those remain owned by:
 
 Future APIs should only be added when they reduce React integration friction without changing runtime semantics.
 
+`useKernelValue()` should become the primary single-readable API in new documentation because it covers both signals and computed values without implying signal-only semantics.
+
+This is a naming-policy decision, not a behavior split. `useSignalValue()` and `useComputedValue()` remain compatibility names, older-example support, and optional readability cues for signal-specific or computed-specific call sites. They should delegate to the same readable subscription mechanism.
+
+Do not make `useComputedValue()` more powerful than `useKernelValue()`. If a value can be read through `useComputedValue()`, it should also be readable through `useKernelValue()` as long as it satisfies the same `get()` / `peek()` readable protocol.
+
 ### Effect wrappers
 
 React-specific wrappers around `createEffect()` are intentionally excluded from the initial release.
@@ -728,6 +857,7 @@ If a graph effect must be scoped to a React component, users can create it insid
 
 Included:
 
+* `useKernelValue()`
 * `useSignalValue()`
 * `useComputedValue()`
 * `useReactive()`
