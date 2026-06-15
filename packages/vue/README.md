@@ -21,14 +21,14 @@ pnpm add @signal-kernel/vue @signal-kernel/core @signal-kernel/async-runtime
 
 ```ts
 import { computed, signal } from "@signal-kernel/core";
-import { useComputedValue, useSignalValue } from "@signal-kernel/vue";
+import { useKernelValue } from "@signal-kernel/vue";
 
 const count = signal(0);
 const doubled = computed(() => count.get() * 2);
 
 export function useCounter() {
-  const value = useSignalValue(count);
-  const label = useComputedValue(doubled);
+  const value = useKernelValue(count);
+  const label = useKernelValue(doubled);
 
   function increment() {
     count.set(count.peek() + 1);
@@ -37,6 +37,10 @@ export function useCounter() {
   return { value, label, increment };
 }
 ```
+
+`useKernelValue()` is the preferred bridge for a single readable signal-kernel graph value. It accepts values that expose `get()` and `peek()`, including signals and computed values.
+
+`useSignalValue()` and `useComputedValue()` remain available as compatibility aliases when a call site wants a signal-specific or computed-specific readability hint.
 
 ## Reading Multiple Values
 

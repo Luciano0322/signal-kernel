@@ -5,19 +5,19 @@ import {
   encodeJsonSnapshot,
   restoreSnapshot,
 } from "@signal-kernel/snapshot";
-import { useResource, useSignalValue } from "@signal-kernel/vue";
+import { useKernelValue, useResource } from "@signal-kernel/vue";
 import { ref } from "vue";
 import { createJobKernelSnapshotScope, type JobStatus } from "../job-kernel";
 
 const kernel = useJobKernel();
 
-const jobs = useSignalValue(kernel.computed.filteredJobListItems);
-const selectedJob = useSignalValue(kernel.computed.selectedJob);
-const selectedJobId = useSignalValue(kernel.state.selectedJobId);
-const selectedJobLogs = useSignalValue(kernel.computed.selectedJobLogs);
-const summary = useSignalValue(kernel.computed.jobSummary);
-const runtimeHealth = useSignalValue(kernel.computed.runtimeHealth);
-const filter = useSignalValue(kernel.state.statusFilter);
+const jobs = useKernelValue(kernel.computed.filteredJobListItems);
+const selectedJob = useKernelValue(kernel.computed.selectedJob);
+const selectedJobId = useKernelValue(kernel.state.selectedJobId);
+const selectedJobLogs = useKernelValue(kernel.computed.selectedJobLogs);
+const summary = useKernelValue(kernel.computed.jobSummary);
+const runtimeHealth = useKernelValue(kernel.computed.runtimeHealth);
+const filter = useKernelValue(kernel.state.statusFilter);
 const jobsResource = useResource(kernel.resources.jobsResource);
 const jobsStatus = jobsResource.status;
 const snapshotText = ref("");

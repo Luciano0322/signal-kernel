@@ -6,8 +6,9 @@ This package is a framework adapter. It is not the owner of graph semantics, asy
 
 ## Use For
 
-- Reading existing signals with `useSignalValue()`.
-- Reading existing computed values with `useComputedValue()`.
+- Reading existing readable graph values with `useKernelValue()`.
+- Keeping older signal-specific snippets working with `useSignalValue()`.
+- Keeping older computed-specific snippets working with `useComputedValue()`.
 - Reading several existing graph values with `useReactive()`.
 - Reading async resources with `useResource()` and `useStreamResource()`.
 - Bridging graph updates into Vue refs through Vue scope disposal.
@@ -24,3 +25,5 @@ This package is a framework adapter. It is not the owner of graph semantics, asy
 ## Architecture Reminder
 
 Core owns the graph. Async runtime owns async correctness. Vue owns rendering. This adapter only connects Vue scopes to existing graph nodes.
+
+Prefer `useKernelValue()` in new examples because it describes the actual adapter boundary: Vue is reading a value owned by the signal-kernel graph. `useSignalValue()` and `useComputedValue()` are compatibility aliases over the same readable bridge, not separate graph semantics.

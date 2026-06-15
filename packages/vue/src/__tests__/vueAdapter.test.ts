@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import { effectScope, isReadonly } from "vue";
 import {
   useComputedValue,
+  useKernelValue,
   useReactive,
   useResource,
   useSignalValue,
@@ -31,6 +32,41 @@ function runInScope<T>(read: () => T) {
 }
 
 describe("@signal-kernel/vue", () => {
+  it("reads an existing signal-kernel graph value with useKernelValue", async () => {
+    const count = signal(0);
+
+    const { result: countRef, stop } = runInScope(() => useKernelValue(count));
+
+    expect(countRef.value).toBe(0);
+    expect(isReadonly(countRef)).toBe(true);
+
+    count.set(1);
+    await flushGraph();
+
+    expect(countRef.value).toBe(1);
+
+    stop();
+    count.set(2);
+    await flushGraph();
+
+    expect(countRef.value).toBe(1);
+    expect(count.get()).toBe(2);
+  });
+
+  it("reads an existing computed graph value with useKernelValue", async () => {
+    const count = signal(1);
+    const doubled = computed(() => count.get() * 2);
+
+    const { result: doubledRef } = runInScope(() => useKernelValue(doubled));
+
+    expect(doubledRef.value).toBe(2);
+
+    count.set(2);
+    await flushGraph();
+
+    expect(doubledRef.value).toBe(4);
+  });
+
   it("reads an existing signal as a readonly Vue ref and updates with the graph", async () => {
     const count = signal(0);
 

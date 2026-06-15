@@ -9,6 +9,7 @@ import type {
 } from "@signal-kernel/async-runtime";
 import {
   useComputedValue,
+  useKernelValue,
   useReactive,
   useResource,
   useSignalValue,
@@ -107,6 +108,43 @@ afterEach(() => {
 });
 
 describe("@signal-kernel/react", () => {
+  it("reads an existing signal-kernel graph value with useKernelValue", async () => {
+    const count = signal(0);
+
+    expect(useKernelValue(count)).toBe(0);
+
+    const store = latestStore();
+    count.set(1);
+    await flushGraph();
+
+    expect(store.notifyCount).toBe(1);
+    expect(store.renderCount).toBe(2);
+    expect(store.lastSnapshot).toBe(1);
+  });
+
+  it("initializes a lazy computed value with useKernelValue", () => {
+    const count = signal(1);
+    const doubled = computed(() => count.get() * 2);
+
+    expect(doubled.peek()).toBeUndefined();
+    expect(useKernelValue(doubled)).toBe(2);
+    expect(doubled.peek()).toBe(2);
+  });
+
+  it("reads computed invalidation through useKernelValue", async () => {
+    const count = signal(1);
+    const doubled = computed(() => count.get() * 2);
+
+    expect(useKernelValue(doubled)).toBe(2);
+
+    const store = latestStore();
+    count.set(2);
+    await flushGraph();
+
+    expect(store.renderCount).toBe(2);
+    expect(store.lastSnapshot).toBe(4);
+  });
+
   it("reads an existing signal and updates through the external store bridge", async () => {
     const count = signal(0);
 

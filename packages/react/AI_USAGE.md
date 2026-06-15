@@ -6,8 +6,9 @@ This package is a framework adapter. It is not the owner of graph semantics, asy
 
 ## Use For
 
-- Reading existing signals with `useSignalValue()`.
-- Reading existing computed values with `useComputedValue()`.
+- Reading existing readable graph values with `useKernelValue()`.
+- Keeping older signal-specific snippets working with `useSignalValue()`.
+- Keeping older computed-specific snippets working with `useComputedValue()`.
 - Reading several existing graph values with `useReactive()`.
 - Reading async resources with `useResource()` and `useStreamResource()`.
 - Bridging graph updates into React rendering with `useSyncExternalStore`.
@@ -53,10 +54,15 @@ The React adapter does not own async semantics. Cancellation, invalidation, stre
 
 Prefer specialized hooks over generic graph reads when possible:
 
+- `useKernelValue()` for single readable graph values
 - `useSignalValue()` for signals
 - `useComputedValue()` for computed values
 - `useResource()` for async resources
 - `useStreamResource()` for streaming resources
+
+Prefer `useKernelValue()` in new examples because it describes the actual adapter boundary: React is reading a value owned by the signal-kernel graph. `useSignalValue()` and `useComputedValue()` are compatibility names and readability hints over the same readable bridge.
+
+In React specifically, `useKernelValue()` and `useComputedValue()` read through `get()` so lazy computed values initialize on first observation. `useSignalValue()` keeps the signal-oriented `peek()` snapshot strategy for call sites that want that behavior explicitly.
 
 `useReactive()` should mainly be used for grouped graph snapshots or custom bridge scenarios.
 

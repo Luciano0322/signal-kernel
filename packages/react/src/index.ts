@@ -1,4 +1,5 @@
 export { useComputedValue } from "./useComputedValue.js";
+export { useKernelValue } from "./useKernelValue.js";
 export { useReactive } from "./useReactive.js";
 export { useResource, type ResourceTuple } from "./useResource.js";
 export { useSignalValue } from "./useSignalValue.js";
