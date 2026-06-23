@@ -1,5 +1,11 @@
 # @signal-kernel/vue
 
+## 0.2.0
+
+### Minor Changes
+
+- b04b3b6: adapter API naming refinement
+
 ## 0.1.2
 
 ### Patch Changes
