@@ -258,6 +258,74 @@ describe("createJobKernel", () => {
     );
   });
 
+  it("recomputes runtime health from restored writable graph state", async () => {
+    const jobs: Job[] = [
+      {
+        id: "job-1",
+        name: "Import",
+        status: "failed",
+        progress: 60,
+        createdAt: 1,
+      },
+    ];
+    const source = createJobKernel({ transport: createTestTransport(jobs) });
+    const target = createJobKernel({ transport: createTestTransport([]) });
+
+    await flush();
+
+    source.actions.dispatch({
+      type: "log_appended",
+      log: {
+        id: "log-1",
+        jobId: "job-1",
+        level: "error",
+        message: "Import failed",
+        timestamp: 456,
+      },
+    });
+
+    const snapshot = captureSnapshot(createJobKernelSnapshotScope(source));
+    restoreSnapshot(createJobKernelSnapshotScope(target), snapshot);
+
+    expect(target.computed.runtimeHealth.get()).toMatchObject({
+      connectionStatus: "idle",
+      lastEventAt: 456,
+      queueHealth: "blocked",
+    });
+  });
+
+  it("restores graph state before explicitly reconnecting the event stream", async () => {
+    const jobs: Job[] = [
+      {
+        id: "job-1",
+        name: "Import",
+        status: "running",
+        progress: 30,
+        createdAt: 1,
+      },
+    ];
+    const source = createJobKernel({ transport: createTestTransport(jobs) });
+    const targetTransport = createTestTransport([]);
+    const target = createJobKernel({ transport: targetTransport });
+
+    await flush();
+
+    const snapshot = captureSnapshot(createJobKernelSnapshotScope(source));
+
+    target.actions.start();
+    target.actions.stop();
+    restoreSnapshot(createJobKernelSnapshotScope(target), snapshot);
+
+    expect(target.state.jobs.get()).toEqual(jobs);
+    expect(targetTransport.subscribeJobEvents).toHaveBeenCalledTimes(1);
+
+    target.actions.start();
+
+    expect(targetTransport.subscribeJobEvents).toHaveBeenCalledTimes(2);
+
+    target.actions.stop();
+  });
+
   it("uses manual resources for mutation-like actions", async () => {
     const jobs: Job[] = [
       {
