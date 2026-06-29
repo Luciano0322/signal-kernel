@@ -1,4 +1,4 @@
-import { useComputedValue, useSignalValue } from "@signal-kernel/react";
+import { useKernelValue } from "@signal-kernel/react";
 import type { ProfileGraph } from "../shared/createProfileGraph";
 import type { SnapshotDocument } from "@signal-kernel/snapshot";
 import "./styles.css";
@@ -9,13 +9,13 @@ type AppProps = {
 };
 
 export function App({ graph, snapshot }: AppProps) {
-  const userId = useSignalValue(graph.signals.userId);
-  const plan = useSignalValue(graph.signals.plan);
-  const usage = useSignalValue(graph.signals.usage);
-  const entitlement = useComputedValue(graph.computed.entitlement);
-  const overLimit = useComputedValue(graph.computed.overLimit);
-  const summary = useComputedValue(graph.computed.summary);
-  const usageLimit = useComputedValue(graph.computed.usageLimit);
+  const userId = useKernelValue(graph.signals.userId);
+  const plan = useKernelValue(graph.signals.plan);
+  const usage = useKernelValue(graph.signals.usage);
+  const entitlement = useKernelValue(graph.computed.entitlement);
+  const overLimit = useKernelValue(graph.computed.overLimit);
+  const summary = useKernelValue(graph.computed.summary);
+  const usageLimit = useKernelValue(graph.computed.usageLimit);
 
   return (
     <main className="app-shell">
