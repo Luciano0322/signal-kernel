@@ -3,8 +3,7 @@
 import { FormEvent, useMemo } from "react";
 import type { StreamAsyncStatus } from "@signal-kernel/async-runtime";
 import {
-  useComputedValue,
-  useSignalValue,
+  useKernelValue,
   useStreamResource,
 } from "@signal-kernel/react";
 import { ChatPanel } from "../components/ChatPanel";
@@ -20,10 +19,10 @@ function toAssistantStatus(streamStatus: StreamAsyncStatus): ChatMessageStatus {
 
 export function KernelChatPanel() {
   const graph = useMemo(() => createChatGraph(), []);
-  const input = useSignalValue(graph.input);
-  const messages = useSignalValue(graph.messages);
-  const activeAssistant = useSignalValue(graph.activeAssistant);
-  const canSubmit = useComputedValue(graph.canSubmit);
+  const input = useKernelValue(graph.input);
+  const messages = useKernelValue(graph.messages);
+  const activeAssistant = useKernelValue(graph.activeAssistant);
+  const canSubmit = useKernelValue(graph.canSubmit);
   const [assistantText, assistantStream] = useStreamResource(graph.stream);
   const streamStatus = assistantStream.status();
   const isStreaming =
@@ -59,7 +58,10 @@ export function KernelChatPanel() {
         { label: "State owner", value: "chatGraph signals and computed values" },
         { label: "Stream owner", value: "createStreamResource tuple" },
         { label: "Policy owner", value: "graph actions and stream meta" },
-        { label: "Render bridge", value: "useStreamResource(graph.stream)" },
+        {
+          label: "Render bridge",
+          value: "useKernelValue + useStreamResource",
+        },
       ]}
       canSubmit={canSubmit}
       input={input}
