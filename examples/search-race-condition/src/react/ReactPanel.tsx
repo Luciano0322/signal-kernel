@@ -1,8 +1,8 @@
-import { useResource, useSignalValue } from "@signal-kernel/react";
+import { useKernelValue, useResource } from "@signal-kernel/react";
 import { searchRaceGraph } from "../graph/searchGraph";
 
 export function ReactPanel() {
-  const query = useSignalValue(searchRaceGraph.query);
+  const query = useKernelValue(searchRaceGraph.query);
   const [result, meta] = useResource(searchRaceGraph.searchResource);
   const status = meta.status();
   const stale = Boolean(result?.query && query && result.query !== query);

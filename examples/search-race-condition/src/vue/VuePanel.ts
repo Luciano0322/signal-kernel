@@ -1,11 +1,11 @@
 import { defineComponent, h } from "vue";
-import { useResource, useSignalValue } from "@signal-kernel/vue";
+import { useKernelValue, useResource } from "@signal-kernel/vue";
 import { searchRaceGraph } from "../graph/searchGraph";
 
 export const VuePanel = defineComponent({
   name: "VuePanel",
   setup() {
-    const query = useSignalValue(searchRaceGraph.query);
+    const query = useKernelValue(searchRaceGraph.query);
     const resource = useResource(searchRaceGraph.searchResource);
 
     return () => {
