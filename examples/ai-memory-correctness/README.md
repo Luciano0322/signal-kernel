@@ -85,8 +85,7 @@ Task 6 provides snapshot timeline inspection:
 The React workbench now renders live graph state. It uses adapter hooks only at
 the rendering boundary:
 
-* `useSignalValue()` for graph signals
-* `useComputedValue()` for derived prompt and recall status
+* `useKernelValue()` for synchronous readable graph values
 * `useResource()` for recalled facts
 * `useStreamResource()` for the mock model stream
 
