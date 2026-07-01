@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import {
-  useComputedValue,
+  useKernelValue,
   useResource,
-  useSignalValue,
 } from "@signal-kernel/vue";
 import type { CommerceGraphContract } from "../shared-graph/graphContract";
 
@@ -13,10 +12,10 @@ const props = defineProps<{
 
 const graph = props.graph;
 
-const selectedAccount = useSignalValue(graph.selectors.selectedAccount);
-const selectedRegion = useSignalValue(graph.selectors.selectedRegion);
-const cartSummary = useComputedValue(graph.selectors.cartSummary);
-const checkout = useComputedValue(graph.selectors.checkout);
+const selectedAccount = useKernelValue(graph.selectors.selectedAccount);
+const selectedRegion = useKernelValue(graph.selectors.selectedRegion);
+const cartSummary = useKernelValue(graph.selectors.cartSummary);
+const checkout = useKernelValue(graph.selectors.checkout);
 const pricing = useResource(graph.resources.pricing);
 const inventory = useResource(graph.resources.inventory);
 

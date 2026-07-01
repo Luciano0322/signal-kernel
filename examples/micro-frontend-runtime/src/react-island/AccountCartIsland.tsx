@@ -1,7 +1,6 @@
 import {
-  useComputedValue,
+  useKernelValue,
   useResource,
-  useSignalValue,
 } from "@signal-kernel/react";
 import type { CommerceGraphContract } from "../shared-graph/graphContract";
 import type { CartItem, CatalogItem, ItemId } from "../shared-graph/types";
@@ -59,13 +58,13 @@ function CatalogRow(props: {
 
 export function AccountCartIsland(props: { graph: CommerceGraphContract }) {
   const { graph } = props;
-  const accounts = useComputedValue(graph.selectors.accounts);
-  const catalog = useComputedValue(graph.selectors.catalog);
-  const selectedAccount = useSignalValue(graph.selectors.selectedAccount);
-  const selectedRegion = useSignalValue(graph.selectors.selectedRegion);
-  const cartItems = useSignalValue(graph.selectors.cartItems);
-  const cartSummary = useComputedValue(graph.selectors.cartSummary);
-  const checkout = useComputedValue(graph.selectors.checkout);
+  const accounts = useKernelValue(graph.selectors.accounts);
+  const catalog = useKernelValue(graph.selectors.catalog);
+  const selectedAccount = useKernelValue(graph.selectors.selectedAccount);
+  const selectedRegion = useKernelValue(graph.selectors.selectedRegion);
+  const cartItems = useKernelValue(graph.selectors.cartItems);
+  const cartSummary = useKernelValue(graph.selectors.cartSummary);
+  const checkout = useKernelValue(graph.selectors.checkout);
   const [pricing, pricingMeta] = useResource(graph.resources.pricing);
 
   return (
