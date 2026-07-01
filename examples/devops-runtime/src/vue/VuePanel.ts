@@ -1,8 +1,7 @@
 import { defineComponent, h } from "vue";
 import {
-  useComputedValue,
+  useKernelValue,
   useResource,
-  useSignalValue,
 } from "@signal-kernel/vue";
 import { devopsGraph } from "../graph/devopsGraph";
 
@@ -23,12 +22,12 @@ function statusLine(label: string, value: string) {
 export const VuePanel = defineComponent({
   name: "VuePanel",
   setup() {
-    const selectedCommit = useSignalValue(devopsGraph.signals.selectedCommit);
-    const approved = useSignalValue(devopsGraph.signals.manualApproval);
+    const selectedCommit = useKernelValue(devopsGraph.signals.selectedCommit);
+    const approved = useKernelValue(devopsGraph.signals.manualApproval);
     const ci = useResource(devopsGraph.resources.ciStatus);
     const artifact = useResource(devopsGraph.resources.artifactStatus);
     const deployment = useResource(devopsGraph.resources.deploymentStatus);
-    const decisions = useComputedValue(devopsGraph.computed.decisions);
+    const decisions = useKernelValue(devopsGraph.computed.decisions);
 
     return () => {
       const snapshot = decisions.value;

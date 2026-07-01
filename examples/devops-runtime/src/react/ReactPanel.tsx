@@ -1,7 +1,6 @@
 import {
-  useComputedValue,
+  useKernelValue,
   useResource,
-  useSignalValue,
   useStreamResource,
 } from "@signal-kernel/react";
 import { devopsGraph } from "../graph/devopsGraph";
@@ -16,8 +15,8 @@ function StatusLine(props: { label: string; value: string }) {
 }
 
 export function ReactPanel() {
-  const selectedCommit = useSignalValue(devopsGraph.signals.selectedCommit);
-  const approved = useSignalValue(devopsGraph.signals.manualApproval);
+  const selectedCommit = useKernelValue(devopsGraph.signals.selectedCommit);
+  const approved = useKernelValue(devopsGraph.signals.manualApproval);
   const [ciStatus, ciMeta] = useResource(devopsGraph.resources.ciStatus);
   const [artifactStatus, artifactMeta] = useResource(
     devopsGraph.resources.artifactStatus,
@@ -28,7 +27,7 @@ export function ReactPanel() {
   const [healthEvents, healthMeta] = useStreamResource(
     devopsGraph.resources.healthEvents,
   );
-  const decisions = useComputedValue(devopsGraph.computed.decisions);
+  const decisions = useKernelValue(devopsGraph.computed.decisions);
   const health = decisions.health.latest;
 
   return (
