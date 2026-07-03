@@ -81,6 +81,7 @@ The signal-kernel route moves the same workflow policy into `chatGraph`.
 signal-kernel
   graph owns input / messages / activeAssistant / request
   createStreamResource owns stream status and partial value
+  React consumes readable graph values with useKernelValue(...)
   React consumes graph.stream with useStreamResource(graph.stream)
   React event handlers only call graph actions
 ```

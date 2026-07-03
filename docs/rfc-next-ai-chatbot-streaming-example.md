@@ -318,10 +318,10 @@ const graph = useMemo(() => createChatGraph(), []);
 The component should read graph values through adapter hooks:
 
 ```ts
-const input = useSignalValue(graph.input);
-const messages = useSignalValue(graph.messages);
-const activeAssistant = useSignalValue(graph.activeAssistant);
-const canSubmit = useComputedValue(graph.canSubmit);
+const input = useKernelValue(graph.input);
+const messages = useKernelValue(graph.messages);
+const activeAssistant = useKernelValue(graph.activeAssistant);
+const canSubmit = useKernelValue(graph.canSubmit);
 const [assistantText, assistantStream] = useStreamResource(graph.stream);
 ```
 
@@ -654,7 +654,7 @@ Use a single-active-stream policy. While an assistant stream is active, addition
 
 Expose the raw stream resource tuple as `graph.stream`.
 
-In React, create the graph once with `useMemo()`, consume graph values through `@signal-kernel/react`, and pass `graph.stream` directly to `useStreamResource(graph.stream)`.
+In React, create the graph once with `useMemo()`, consume readable graph values with `useKernelValue()`, and pass `graph.stream` directly to `useStreamResource(graph.stream)`.
 
 Do not manually subscribe to signal-kernel from React effects. Do not mirror graph state into React state. Do not wrap stream resources into incompatible shapes.
 

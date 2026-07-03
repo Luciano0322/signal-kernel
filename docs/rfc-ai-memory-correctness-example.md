@@ -457,7 +457,7 @@ This helper should follow the existing `signal-kernel` public API style:
 * `signal()` and `computed()` return objects with `.get()` / `.peek()` methods.
 * `createResource()` returns `[valueGetter, meta]`.
 * `createStreamResource()` returns `[valueGetter, meta]`.
-* React integration should happen only through adapter hooks such as `useSignalValue`, `useComputedValue`, `useResource`, and `useStreamResource`.
+* React integration should happen only through adapter hooks such as `useKernelValue`, `useResource`, and `useStreamResource`.
 
 Recall should be modeled with the actual `createResource()` tuple shape:
 

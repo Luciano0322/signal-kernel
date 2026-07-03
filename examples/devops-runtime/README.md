@@ -16,7 +16,9 @@ The graph owns:
 * manual approval
 * derived decisions such as `canDeploy`, `canPromote`, `blockedReason`, and `riskLevel`
 
-React and Vue only render the graph through thin adapters.
+React and Vue only render the graph through thin adapters. Both use
+`useKernelValue()` for synchronous readable graph values, while resources and
+streams remain on their dedicated adapter hooks.
 
 ## Runtime Graph
 

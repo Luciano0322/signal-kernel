@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import {
-  useComputedValue,
+  useKernelValue,
   useResource,
-  useSignalValue,
   useStreamResource,
 } from "@signal-kernel/react";
 import { ChatPanel } from "./components/ChatPanel";
@@ -69,13 +68,13 @@ export function App() {
   const [draft, setDraft] = useState(initialMessage);
   const [activeScenarioId, setActiveScenarioId] =
     useState<ScenarioId>("snapshot-timeline");
-  const activeTurnId = useSignalValue(graph.signals.activeTurnId);
-  const currentUserMessage = useSignalValue(graph.signals.currentUserMessage);
-  const events = useSignalValue(graph.signals.events);
-  const snapshots = useSignalValue(graph.signals.snapshots);
-  const retainState = useSignalValue(graph.signals.retainState);
-  const prompt = useComputedValue(graph.computed.renderedPrompt);
-  const recallStatus = useComputedValue(graph.computed.status);
+  const activeTurnId = useKernelValue(graph.signals.activeTurnId);
+  const currentUserMessage = useKernelValue(graph.signals.currentUserMessage);
+  const events = useKernelValue(graph.signals.events);
+  const snapshots = useKernelValue(graph.signals.snapshots);
+  const retainState = useKernelValue(graph.signals.retainState);
+  const prompt = useKernelValue(graph.computed.renderedPrompt);
+  const recallStatus = useKernelValue(graph.computed.status);
   const [recalledFacts = []] = useResource(graph.resources.recalledFacts);
   const [assistantText = "", streamMeta] = useStreamResource(
     graph.resources.modelStream,

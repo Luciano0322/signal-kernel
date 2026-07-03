@@ -20,6 +20,10 @@ It is not an SSR framework example, React Server Components example, or
 component hydration layer. Components are not snapshotted. The reactive graph is
 the transfer boundary.
 
+After restore, the React renderer uses `useKernelValue()` for both writable
+signals and computed values. The hook is only the adapter bridge that exposes a
+readable kernel value to React; it does not own or restore the graph.
+
 ## Run
 
 ```sh

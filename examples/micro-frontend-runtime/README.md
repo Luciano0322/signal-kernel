@@ -20,7 +20,9 @@ The graph contract exposes:
 
 Raw writable signals remain private to `src/shared-graph/`.
 
-React and Vue do not call each other. They communicate by reading graph state through adapters and by requesting state changes through graph actions.
+React and Vue do not call each other. They communicate by reading selector
+values through each adapter's `useKernelValue()` API and by requesting state
+changes through graph actions. Async resource tuples remain on `useResource()`.
 
 ## Selector Contract Note
 
@@ -43,7 +45,13 @@ export function createSelector<T>(read: () => T): Readable<T> {
 
 This is a deliberate graph-contract decision.
 
-React adapter hooks can use different snapshot strategies depending on the source. Signals can be read through `peek()` for render snapshots, while computed values may need `get()` so lazy values are initialized before React renders them. If a public selector exposes an unprimed computed value, a consumer can still observe an invalid first snapshot even though the selector's logical type is non-null.
+Both islands consume the public selector contract through `useKernelValue()`, so
+they do not need to know whether a selector is backed by a signal or computed
+value. The structural `Readable` contract still exposes `peek()`, however, and
+adapter or non-renderer consumers may use that snapshot without first calling
+`get()`. If a public selector exposes an unprimed computed value, those consumers
+could observe an invalid first snapshot even though the selector's logical type
+is non-null.
 
 The shared graph library takes responsibility for that boundary:
 

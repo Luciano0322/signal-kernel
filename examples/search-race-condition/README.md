@@ -21,6 +21,8 @@ The page renders three panels:
 * **Vue + signal-kernel** reads the same shared graph through `@signal-kernel/vue`.
 
 React and Vue own rendering. The shared signal-kernel graph owns async correctness.
+Both framework panels read the query through `useKernelValue()` and consume the
+latest-wins async result through `useResource()`.
 
 ## Run
 
