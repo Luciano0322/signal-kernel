@@ -117,6 +117,46 @@ pnpm --filter @signal-kernel/core bench
 
 Only add the benchmark command after a benchmark script exists.
 
+### Phase 0 Baseline Record
+
+Recorded on 2026-07-09 before changing scheduler internals.
+
+Current core test surface:
+
+```txt
+packages/core/src/__tests__/scheduler.test.ts
+```
+
+Existing scheduler tests:
+
+* `runs computed before effects in the same tick`
+* `effects are sorted by priority (small -> large)`
+* `computed produced during effects runs in the next loop before next effects`
+* `batch(): defers flush until batch exit`
+* `transaction(): commit keeps changes and flushes normally`
+* `transaction(): rollback restores values, marks downstream computed stale, and clears queues`
+* `nested atomic: inner commit + outer rollback restores all written nodes`
+* `inAtomic() reflects current atomic depth`
+* `flushSync() no-ops when nothing scheduled`
+* `scheduleJob respects disposed flag`
+
+Baseline command results:
+
+```txt
+pnpm.cmd --filter @signal-kernel/core test
+1 test file passed, 10 tests passed.
+
+pnpm.cmd --filter @signal-kernel/core typecheck
+TypeScript passed with no errors.
+```
+
+Notes:
+
+* The current core test suite is scheduler-focused. It does not yet provide broad public-API characterization tests for `signal()`, `computed()`, `createEffect()`, and `batch()` working together.
+* The rollback scheduler test currently logs an expected `Error: boom` through `console.error` while still passing. This is baseline behavior, not a scheduler failure.
+* No core benchmark script exists yet, so Phase 0 has no benchmark baseline.
+* On Windows PowerShell, use `pnpm.cmd` if `pnpm.ps1` is blocked by execution policy.
+
 ## Phase 1: Characterization Tests
 
 Add characterization tests before changing queue internals.
@@ -139,6 +179,34 @@ same computed job scheduled many times before flush runs once
 
 This test protects the most important behavior currently provided by `Set`.
 
+### Phase 1 Characterization Record
+
+Recorded on 2026-07-09.
+
+Added characterization tests:
+
+* `scheduleJob dedupes repeated computed jobs before flush`
+* `batch dedupes repeated computed jobs until batch exits`
+* `transaction rollback clears pending computed jobs before they run`
+* `runs computed before priority-sorted effects in a mixed flush`
+* `dedupes computed jobs scheduled during an effect before the next loop`
+
+Command results:
+
+```txt
+pnpm.cmd --filter @signal-kernel/core test
+1 test file passed, 15 tests passed.
+
+pnpm.cmd --filter @signal-kernel/core typecheck
+TypeScript passed with no errors.
+```
+
+Notes:
+
+* No scheduler implementation code changed in Phase 1.
+* These tests intentionally pass against the current `Set`-based queue. Their job is to preserve existing behavior before replacing the computed queue internals.
+* The effect queue remains protected by both standalone priority tests and a mixed computed/effect flush test.
+
 ## Phase 2: Introduce Internal Queue Module
 
 Create a small internal queue module only if the tests justify the implementation change.
@@ -146,7 +214,7 @@ Create a small internal queue module only if the tests justify the implementatio
 Candidate file:
 
 ```txt
-packages/core/src/jobQueue.ts
+packages/core/src/dedupedJobQueue.ts
 ```
 
 Candidate internal shape:
@@ -170,6 +238,41 @@ The first implementation should support:
 
 Avoid adding priority behavior in this module during the first pass.
 
+### Phase 2 Internal Queue Record
+
+Recorded on 2026-07-09.
+
+Added files:
+
+```txt
+packages/core/src/dedupedJobQueue.ts
+packages/core/src/__tests__/dedupedJobQueue.test.ts
+```
+
+Implemented internal queue behaviors:
+
+* FIFO insertion and shifting.
+* O(1) membership dedupe through a private symbol slot on the queued job.
+* `shift()` clears the membership slot so the same job can be queued again.
+* `clear()` clears all membership slots so rollback-style queue clearing can safely requeue jobs later.
+* `size` tracks queued jobs.
+
+Command results:
+
+```txt
+pnpm.cmd --filter @signal-kernel/core test
+2 test files passed, 19 tests passed.
+
+pnpm.cmd --filter @signal-kernel/core typecheck
+TypeScript passed with no errors.
+```
+
+Notes:
+
+* The new queue is internal and is not exported from the package public API.
+* The scheduler has not been changed yet. Phase 2 only introduces and tests the queue module.
+* Priority behavior is intentionally absent from `dedupedJobQueue.ts`; effect queue behavior remains a Phase 5 decision if benchmarks ever justify it.
+
 ## Phase 3: Replace Computed Queue Only
 
 Replace only the computed queue path.
@@ -190,6 +293,39 @@ if effect queue has jobs:
 The implementation may stop using `Array.from(computeQ)` for computed jobs, but behavior must remain identical.
 
 Rollback must clear the computed queue and all queue membership slots.
+
+### Phase 3 Computed Queue Replacement Record
+
+Recorded on 2026-07-09.
+
+Added scheduler guard test:
+
+* `transaction rollback allows the same computed job to be scheduled again`
+
+Changed implementation:
+
+* `computeQ` now uses `createDedupedJobQueue<Job>()`.
+* Computed jobs are scheduled through `computeQ.enqueue(job)`.
+* Computed flush uses `batchSize` plus `shift()` instead of `Array.from(computeQ)`.
+* Computed batch boundaries are preserved: computed jobs scheduled while a computed batch is running are left for the next computed batch before effects run.
+* Rollback still calls `computeQ.clear()`, which now also clears queue membership slots.
+* `effectQ` remains `Set` plus `Array.from(effectQ).sort(...)`.
+
+Command results:
+
+```txt
+pnpm.cmd --filter @signal-kernel/core test
+2 test files passed, 20 tests passed.
+
+pnpm.cmd --filter @signal-kernel/core typecheck
+TypeScript passed with no errors.
+```
+
+Notes:
+
+* `Array.from(computeQ)` has been removed.
+* `Array.from(effectQ)` remains intentionally unchanged because effect queue priority ordering is outside Phase 3.
+* No downstream package API changes are required.
 
 ## Phase 4: Benchmark
 
