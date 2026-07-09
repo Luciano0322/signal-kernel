@@ -361,6 +361,79 @@ The benchmark should compare the current baseline against the linked computed qu
 
 Do not keep a more complex queue if it only improves one synthetic case while making normal scheduler behavior slower or harder to maintain.
 
+### Phase 4 Benchmark Record
+
+Recorded on 2026-07-09.
+
+Added files and scripts:
+
+```txt
+packages/core/bench/scheduler.bench.ts
+packages/core/package.json -> bench script
+```
+
+Benchmark command:
+
+```txt
+pnpm.cmd --filter @signal-kernel/core bench
+```
+
+The script runs:
+
+```txt
+vitest bench --run bench/scheduler.bench.ts
+```
+
+Benchmark workloads:
+
+* enqueue and flush distinct computed jobs
+* dedupe repeated scheduling of the same computed job
+* cascade through computed jobs scheduled by previous computed jobs
+
+Input sizes:
+
+```txt
+100
+1_000
+10_000
+```
+
+Local benchmark result from this run:
+
+```txt
+enqueue and flush 100 distinct computed jobs       mean 0.0279 ms
+enqueue and flush 1000 distinct computed jobs      mean 0.2733 ms
+enqueue and flush 10000 distinct computed jobs     mean 3.4130 ms
+
+dedupe same computed job scheduled 100 times       mean 0.0038 ms
+dedupe same computed job scheduled 1000 times      mean 0.0288 ms
+dedupe same computed job scheduled 10000 times     mean 0.2802 ms
+
+cascade through 100 computed jobs                  mean 0.0399 ms
+cascade through 1000 computed jobs                 mean 0.3174 ms
+cascade through 10000 computed jobs                mean 3.2021 ms
+```
+
+Command results:
+
+```txt
+pnpm.cmd --filter @signal-kernel/core bench
+1 benchmark file passed.
+
+pnpm.cmd --filter @signal-kernel/core test
+2 test files passed, 20 tests passed.
+
+pnpm.cmd --filter @signal-kernel/core typecheck
+TypeScript passed with no errors.
+```
+
+Notes:
+
+* These numbers are local benchmark observations, not release guarantees.
+* This benchmark was added after replacing the computed queue, so it is a post-change baseline for future scheduler work.
+* No pre-change benchmark exists for direct numeric comparison because Phase 0 had no benchmark script.
+* Phase 4 initially targeted scheduler computed queue workloads. Phase 5 extends the same benchmark file with effect queue decision data.
+
 ## Phase 5: Decide Whether Effect Queue Needs Work
 
 Do not optimize the effect queue unless benchmark or profiling data shows that `Array.from(effectQ).sort(...)` is a real cost.
@@ -372,6 +445,63 @@ If effect queue optimization becomes necessary, evaluate separately:
 * Keeping `Set` plus sort.
 
 This decision should be documented before implementation because effect priority ordering is observable scheduler behavior.
+
+### Phase 5 Effect Queue Decision Record
+
+Recorded on 2026-07-09.
+
+Added benchmark workloads:
+
+* enqueue and flush priority-sorted effect jobs
+* enqueue and flush mixed computed plus priority-sorted effect jobs
+
+Input sizes:
+
+```txt
+100
+1_000
+10_000
+```
+
+Local benchmark result from this run:
+
+```txt
+enqueue and flush 100 priority-sorted effect jobs                         mean 0.0091 ms
+enqueue and flush 1000 priority-sorted effect jobs                        mean 0.0705 ms
+enqueue and flush 10000 priority-sorted effect jobs                       mean 0.9197 ms
+
+enqueue and flush 100 computed plus 100 priority-sorted effect jobs       mean 0.0357 ms
+enqueue and flush 1000 computed plus 1000 priority-sorted effect jobs     mean 0.3400 ms
+enqueue and flush 10000 computed plus 10000 priority-sorted effect jobs   mean 4.4357 ms
+```
+
+Decision:
+
+```txt
+Keep effectQ as Set plus Array.from(effectQ).sort(...).
+Do not optimize the effect queue in this phase.
+```
+
+Rationale:
+
+* The benchmark does not show effect priority sorting as an obvious current bottleneck.
+* In this local run, flushing 10,000 priority-sorted effect jobs had a mean of `0.9197 ms`.
+* The same run measured 10,000 distinct computed jobs at `2.6898 ms`.
+* Changing effect queue internals now would add complexity around observable priority ordering without enough evidence.
+* Revisit only if production-style profiling or larger graph benchmarks show `Array.from(effectQ).sort(...)` dominating scheduler cost.
+
+Command results:
+
+```txt
+pnpm.cmd --filter @signal-kernel/core bench
+1 benchmark file passed.
+
+pnpm.cmd --filter @signal-kernel/core test
+2 test files passed, 20 tests passed.
+
+pnpm.cmd --filter @signal-kernel/core typecheck
+TypeScript passed with no errors.
+```
 
 ## Acceptance Criteria
 

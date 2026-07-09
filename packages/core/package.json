@@ -42,6 +42,7 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --tsconfig tsconfig.dts.json",
+    "bench": "vitest bench --run bench/scheduler.bench.ts",
     "lint": "pnpm exec eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
