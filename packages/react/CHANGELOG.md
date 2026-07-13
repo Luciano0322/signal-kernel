@@ -1,5 +1,13 @@
 # @signal-kernel/react
 
+## 0.5.1
+
+### Patch Changes
+
+- Updated dependencies [ec39538]
+  - @signal-kernel/core@0.1.4
+  - @signal-kernel/async-runtime@0.3.1
+
 ## 0.5.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @signal-kernel/core
 
+## 0.1.4
+
+### Patch Changes
+
+- ec39538: optmise scheduler job queue data structure
+
 ## 0.1.3
 
 ### Patch Changes
