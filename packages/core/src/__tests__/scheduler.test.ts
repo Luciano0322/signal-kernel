@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// 1) 先 mock 掉 markStale（供 rollback 測試使用）
 vi.mock("../computed.js", () => ({
   markStale: vi.fn(),
 }));
 
-// 幫助在每個測試用「全新模組狀態」
 async function loadScheduler() {
   const mod = await import("../scheduler.js");
   return mod as typeof import("../scheduler.js");
@@ -13,7 +11,6 @@ async function loadScheduler() {
 
 const markStale = (await import("../computed.js")).markStale as unknown as ReturnType<typeof vi.fn>;
 
-// 測試中會用到的極簡 Node 型別（讓 scheduler 的 rollback 能標髒）
 type Node = {
   kind: "signal" | "computed" | "effect";
   deps: Set<Node>;
@@ -33,7 +30,7 @@ function makeComputedNode(): Node {
 }
 
 afterEach(() => {
-  vi.resetModules(); // 清掉單例隊列/旗標
+  vi.resetModules();
   vi.clearAllMocks();
 });
 
@@ -53,10 +50,22 @@ describe("two-phase scheduler", () => {
     S.scheduleJob(computedJob);
     S.scheduleJob(effectJob);
 
-    // 立即 flush（略過 microtask 排程的不確定性）
     S.flushSync();
 
     expect(order).toEqual(["c", "e"]);
+  });
+
+  it("scheduleJob dedupes repeated computed jobs before flush", async () => {
+    const ran: string[] = [];
+    const computedJob = { kind: "computed" as const, run: () => ran.push("c") };
+
+    S.scheduleJob(computedJob);
+    S.scheduleJob(computedJob);
+    S.scheduleJob(computedJob);
+
+    S.flushSync();
+
+    expect(ran).toEqual(["c"]);
   });
 
   it("effects are sorted by priority (small -> large)", async () => {
@@ -74,6 +83,22 @@ describe("two-phase scheduler", () => {
     expect(order).toEqual([0, 1, 2]);
   });
 
+  it("runs computed before priority-sorted effects in a mixed flush", async () => {
+    const order: string[] = [];
+
+    const e2 = { kind: "effect" as const, priority: 2, run: () => order.push("e2") };
+    const c = { kind: "computed" as const, run: () => order.push("c") };
+    const e0 = { kind: "effect" as const, priority: 0, run: () => order.push("e0") };
+
+    S.scheduleJob(e2);
+    S.scheduleJob(c);
+    S.scheduleJob(e0);
+
+    S.flushSync();
+
+    expect(order).toEqual(["c", "e0", "e2"]);
+  });
+
   it("computed produced during effects runs in the next loop before next effects", async () => {
     const seq: string[] = [];
 
@@ -83,7 +108,6 @@ describe("two-phase scheduler", () => {
       kind: "effect",
       run: () => {
         seq.push("e1");
-        // 在 effect 期間新增 computed，下輪先跑 computed
         S.scheduleJob(c);
       },
     };
@@ -93,8 +117,26 @@ describe("two-phase scheduler", () => {
     S.scheduleJob(e2);
     S.flushSync();
 
-    // 本輪先無 computed -> 跑 effects (e1, e2) -> 下輪先跑 computed (c)
     expect(seq).toEqual(["e1", "e2", "c"]);
+  });
+
+  it("dedupes computed jobs scheduled during an effect before the next loop", async () => {
+    const seq: string[] = [];
+    const c = { kind: "computed" as const, run: () => seq.push("c") };
+
+    const effectJob = {
+      kind: "effect" as const,
+      run: () => {
+        seq.push("e");
+        S.scheduleJob(c);
+        S.scheduleJob(c);
+      },
+    };
+
+    S.scheduleJob(effectJob);
+    S.flushSync();
+
+    expect(seq).toEqual(["e", "c"]);
   });
 
   it("batch(): defers flush until batch exit", async () => {
@@ -106,40 +148,46 @@ describe("two-phase scheduler", () => {
     S.batch(() => {
       S.scheduleJob(cJob);
       S.scheduleJob(eJob);
-      // 在 batch 內不應該馬上執行
       expect(seen).toEqual([]);
     });
 
-    // 離開 batch 才 flush
     expect(seen).toEqual(["c", "e"]);
+  });
+
+  it("batch dedupes repeated computed jobs until batch exits", async () => {
+    const ran: string[] = [];
+    const computedJob = { kind: "computed" as const, run: () => ran.push("c") };
+
+    S.batch(() => {
+      S.scheduleJob(computedJob);
+      S.scheduleJob(computedJob);
+      S.scheduleJob(computedJob);
+      expect(ran).toEqual([]);
+    });
+
+    expect(ran).toEqual(["c"]);
   });
 
   it("transaction(): commit keeps changes and flushes normally", async () => {
     const subComputed = makeComputedNode();
-    const sig = makeSignalNode(1, [subComputed]); // subs 只有在 rollback 測試會用到
+    const sig = makeSignalNode(1, [subComputed]);
     const ran: string[] = [];
 
-    // 用 effect job 檢查 flush 確實發生
     const effectJob = { kind: "effect", run: () => ran.push("effect") };
     const computedJob = { kind: "computed", run: () => ran.push("computed") };
 
     const out = S.transaction(() => {
-      // 你在 signal.set() 前應呼叫 recordAtomicWrite
       S.recordAtomicWrite(sig as any, sig.value);
-      // 模擬真正的 set 寫入
       sig.value = 2;
 
-      // 交易中排程一些工作
       S.scheduleJob(computedJob);
       S.scheduleJob(effectJob);
 
       return 42;
     });
 
-    // 非 Promise 分支直接回傳
     expect(out).toBe(42);
 
-    // commit 分支：值被保留、且已 flush（先 computed 再 effect）
     expect(sig.value).toBe(2);
     expect(ran).toEqual(["computed", "effect"]);
     expect(markStale).not.toHaveBeenCalled();
@@ -159,24 +207,53 @@ describe("two-phase scheduler", () => {
         S.recordAtomicWrite(sig as any, sig.value);
         sig.value = 99;
 
-        // 交易中排程一些工作，但因為會 rollback，這些都不該執行
         S.scheduleJob(cJob);
         S.scheduleJob(eJob);
 
         throw new Error("boom");
       });
     } catch (e) {
-      // swallow
       console.error(e)
     }
 
-    // 回滾：值恢復
     expect(sig.value).toBe(10);
-    // 標髒下游 computed
     expect(markStale).toHaveBeenCalledTimes(1);
     expect(markStale).toHaveBeenCalledWith(down);
-    // muted 期間 scheduleJob 被忽略、且清空隊列 => 沒有任何 job 執行
     expect(ran).toEqual([]);
+  });
+
+  it("transaction rollback clears pending computed jobs before they run", async () => {
+    const ran: string[] = [];
+    const computedJob = { kind: "computed" as const, run: () => ran.push("c") };
+
+    expect(() => {
+      S.transaction(() => {
+        S.scheduleJob(computedJob);
+        S.scheduleJob(computedJob);
+        throw new Error("rollback");
+      });
+    }).toThrow("rollback");
+
+    S.flushSync();
+
+    expect(ran).toEqual([]);
+  });
+
+  it("transaction rollback allows the same computed job to be scheduled again", async () => {
+    const ran: string[] = [];
+    const computedJob = { kind: "computed" as const, run: () => ran.push("c") };
+
+    expect(() => {
+      S.transaction(() => {
+        S.scheduleJob(computedJob);
+        throw new Error("rollback");
+      });
+    }).toThrow("rollback");
+
+    S.scheduleJob(computedJob);
+    S.flushSync();
+
+    expect(ran).toEqual(["c"]);
   });
 
   it("nested atomic: inner commit + outer rollback restores all written nodes", async () => {
@@ -190,20 +267,17 @@ describe("two-phase scheduler", () => {
         S.recordAtomicWrite(a as any, a.value);
         a.value = 111;
 
-        // 內層成功 commit
         S.atomic(() => {
           S.recordAtomicWrite(b as any, b.value);
           b.value = 222;
         });
 
-        // 外層最後回滾
         throw new Error("outer fail");
       });
     } catch {}
 
     expect(a.value).toBe(1);
     expect(b.value).toBe(2);
-    // 兩個下游 computed 都被標髒
     expect(markStale).toHaveBeenCalledTimes(2);
     expect(markStale).toHaveBeenCalledWith(subA);
     expect(markStale).toHaveBeenCalledWith(subB);
@@ -222,7 +296,6 @@ describe("two-phase scheduler", () => {
   });
 
   it("flushSync() no-ops when nothing scheduled", async () => {
-    // 不應拋錯、不應有任何副作用
     expect(() => S.flushSync()).not.toThrow();
   });
 

@@ -1,4 +1,5 @@
 import { markStale } from "./computed.js";
+import { createDedupedJobQueue } from "./dedupedJobQueue.js";
 import { type Node } from "./graph.js";
 
 export interface Schedulable { run(): void; disposed?: boolean };
@@ -10,7 +11,7 @@ export type InternalNode<T = unknown> = { value: T };
 
 type WriteLog = Map<(Node & InternalNode<unknown>), unknown>;
 
-const computeQ = new Set<Job>();
+const computeQ = createDedupedJobQueue<Job>();
 const effectQ  = new Set<Job>();
 
 let scheduled = false;
@@ -27,7 +28,7 @@ export function scheduleJob(job: Schedulable) {
   if (muted > 0) return;
 
   const kind: JobKind = (j.kind ?? 'effect');
-  if (kind === 'computed') computeQ.add(j);
+  if (kind === 'computed') computeQ.enqueue(j);
   else effectQ.add(j);
 
   if (!scheduled && batchDepth === 0) {
@@ -147,9 +148,10 @@ function flushJobsTwoPhase() {
   while (computeQ.size > 0 || effectQ.size > 0) {
     if (++guard > 10000) throw new Error("Infinite update loop");
     while (computeQ.size > 0) {
-      const batch = Array.from(computeQ);
-      computeQ.clear();
-      for (const job of batch) {
+      const batchSize = computeQ.size;
+      for (let i = 0; i < batchSize; i++) {
+        const job = computeQ.shift();
+        if (!job) break;
         (job as Job).kind = 'computed';
         job.run();
       }
