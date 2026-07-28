@@ -17,6 +17,12 @@ primary mental model. Positional resource forms remain v0.x compatibility
 shorthands, but new code and documentation should describe resources through
 explicit `input`, `observe`, `run`, `stream`, and `invalidates` fields.
 
+The next stream lifecycle revision keeps the same `createStreamResource`
+primitive while extending its producer contract. Generic chunk and value types
+already cover text, structured events, and binary data. The missing capability
+is lifecycle ownership for push-based producers such as WebSocket, SSE,
+Observable, and event subscriptions.
+
 ---
 
 ## Goals
@@ -29,6 +35,11 @@ explicit `input`, `observe`, `run`, `stream`, and `invalidates` fields.
 * Support manual mutation resources.
 * Support declarative invalidation without introducing a global query cache.
 * Support stream or incremental async resource updates.
+* Support both finite pull-based and long-lived push-based stream producers.
+* Abort and clean up superseded stream runs deterministically.
+* Allow callback-based producers to report terminal failure.
+* Allow an explicitly owned stream resource to be disposed independently of a
+  UI framework.
 * Remain framework-neutral.
 * Build on `@signal-kernel/core` instead of redefining graph semantics.
 
@@ -39,7 +50,10 @@ explicit `input`, `observe`, `run`, `stream`, and `invalidates` fields.
 * Replacing TanStack Query, SWR, or framework query libraries.
 * Adding global query caches.
 * Adding retry, polling, deduplication, or server-cache policy as default runtime behavior.
+* Providing WebSocket, EventSource, Observable, or transport-specific clients.
+* Defining reconnect, heartbeat, backoff, or network recovery policy.
 * Coupling async lifecycle to React, Vue, component mount, or component unmount.
+* Treating every transport error event as a terminal stream failure.
 * Providing Suspense-first semantics.
 * Hiding business logic inside UI adapters.
 * Resuming live promises, abort controllers, sockets, timers, or streams from snapshots.
@@ -164,6 +178,73 @@ boundary.
 
 `createStreamResource(source, streamer, options?)` remains a v0.x compatibility
 shorthand, but object form is the primary documented API.
+
+The planned additive producer lifecycle contract is:
+
+```ts
+type StreamCleanup = () => void;
+
+interface StreamContext<TChunk, TValue, E = unknown> {
+  emit(chunk: TChunk): void;
+  set(value: TValue): void;
+  done(finalValue?: TValue): void;
+  fail(error: E): void;
+  readonly signal: AbortSignal;
+  onCleanup(cleanup: StreamCleanup): void;
+  isCancelled(): boolean;
+}
+
+interface StreamAsyncMeta<E, TValue> {
+  status(): StreamAsyncStatus;
+  error(): E | undefined;
+  reload(): void;
+  cancel(reason?: unknown): void;
+  stableValue(): TValue | undefined;
+  dispose(): void;
+}
+```
+
+Existing finite stream producers remain valid. They do not need to use
+`signal`, `onCleanup()`, or `fail()` unless they own cancellable work,
+subscriptions, or callback-based error delivery.
+
+Returning from `stream()` does not imply completion. A push-based producer may
+return immediately after registering listeners and remain active until it
+calls `done()`, calls `fail()`, or the runtime closes the run.
+
+For example, the runtime does not own the WebSocket API, but it can own the
+producer lifecycle:
+
+```ts
+const [messages, meta] = createStreamResource({
+  input: channelId.get,
+  stream: (channelId, ctx) => {
+    const socket = new WebSocket(`/channels/${channelId}`);
+
+    socket.addEventListener("message", (event) => {
+      ctx.emit(JSON.parse(event.data));
+    });
+
+    socket.addEventListener("error", () => {
+      ctx.fail(new Error("WebSocket connection failed"));
+    });
+
+    socket.addEventListener("close", () => {
+      if (!ctx.isCancelled()) {
+        ctx.done();
+      }
+    });
+
+    ctx.onCleanup(() => socket.close());
+  },
+  initialValue: [],
+  reduce: (current = [], message) => [...current, message],
+});
+```
+
+The same contract supports EventSource, Observable, Node event emitters,
+`ReadableStream`, and other subscription sources without adding
+transport-specific primitives to async-runtime.
 
 ### `createRevision()` and `createKeyedRevision()`
 
@@ -313,6 +394,62 @@ usually receives new data through the stream itself. Mutation-driven
 resubscription should be introduced only when the subscription identity really
 changed.
 
+### Stream Producer Lifecycle
+
+Each stream execution owns an independent run lifecycle. A run contains its own
+abort signal, cleanup registrations, and closed state. Only the active,
+non-closed run may update visible value, stable value, status, or error.
+
+The lifecycle contract is:
+
+| Trigger | Abort active signal | Run cleanup | Stop observation | Result |
+| --- | --- | --- | --- | --- |
+| `input()` or `observe()` changes | Yes | Yes, once | No | Start a new pending run |
+| `reload()` | Yes | Yes, once | No | Start a new pending run |
+| `cancel(reason?)` | Yes | Yes, once | No | Apply cancel policy and enter `cancelled` |
+| `done(finalValue?)` | No | Yes, once | No | Commit stable value and enter `success` |
+| `fail(error)`, throw, or rejection | No | Yes, once | No | Apply error policy and enter `error` |
+| `dispose()` | Yes, when active | Yes, once | Yes | If active, apply cancel policy and enter `cancelled`; permanently stop the resource |
+
+A run must be marked closed before abort callbacks or cleanup functions execute.
+This prevents cleanup-triggered transport events from re-entering
+`emit()`, `set()`, `done()`, or `fail()`.
+
+Cleanup registrations use obligation semantics rather than function-identity
+deduplication. Every registration is executed at most once. If
+`onCleanup(cleanup)` is called after its run has already closed, the cleanup is
+executed immediately so asynchronous setup cannot leak a late-created
+subscription.
+
+Synchronous throws, returned Promise rejections, and `ctx.fail(error)` all use
+the same terminal error path. Errors from stale or closed runs are ignored.
+
+`cancel()` ends only the current run. Future input or observed dependency
+changes may start another run. `dispose()` is permanent and also disposes the
+internal reactive effect. It is idempotent, and `reload()` after disposal does
+not restart the resource. Disposing an active run applies its cancellation
+policy and enters `cancelled`; disposing an already terminal resource preserves
+its committed terminal state.
+
+`isCancelled()` reports cancellation, supersession, reload, or disposal. It
+does not redefine successful completion or producer failure as cancellation.
+The runtime still rejects all callbacks from any closed run internally.
+
+### Long-Lived Stream Semantics
+
+A long-lived producer may remain in `streaming` indefinitely. It enters
+`success` only after an explicit `done()` call and enters `error` only after a
+terminal `fail()`, synchronous throw, or returned Promise rejection.
+
+The producer decides whether a transport event is terminal. For example, an
+EventSource `error` event may represent an automatic reconnect attempt and does
+not have to call `fail()`.
+
+`stableValue()` continues to represent the value committed by the latest
+successful `done()`. This revision does not add checkpoint, reconnect
+retention, or intermediate commit semantics. Those policies require separate
+evidence from long-lived stream examples before becoming public API.
+
 ---
 
 ## Adapter Boundary
@@ -322,7 +459,8 @@ Framework adapters may read async resources and expose snapshots to renderers.
 Adapters must not:
 
 * add caching or retry policy
-* automatically cancel resources on component unmount
+* automatically cancel or dispose an externally supplied shared resource on
+  component unmount
 * redefine status transitions
 * hide stale-result behavior
 * route async correctness through framework effects
@@ -342,6 +480,12 @@ meta.stableValue();
 ```
 
 when exposed by the public stream meta API.
+
+An adapter may connect `meta.dispose()` to framework lifecycle only when
+resource ownership is explicit, such as a resource created inside an
+adapter-owned scope or an explicit opt-in disposal policy. Vue
+`onScopeDispose()` and React effect cleanup must not become implicit ownership
+of graph resources created elsewhere.
 
 ---
 
@@ -396,6 +540,14 @@ Important behaviors:
 * stream error interruption policy
 * stream cancel interruption policy
 * stream `observe()` resubscription
+* per-run abort signal behavior
+* cleanup on cancellation, supersession, reload, completion, failure, and
+  disposal
+* cleanup exactly-once behavior and late cleanup registration
+* stale callback emission and failure isolation
+* explicit callback-based `fail(error)`
+* terminal `done()` behavior
+* idempotent `dispose()` and prevention of post-disposal restart
 
 Tests should not depend on internal tokens or private implementation details
 except through observable behavior.
@@ -409,6 +561,6 @@ layer.
 
 It owns async state, cancellation, stale-result prevention, latest-wins
 behavior, query resources, manual mutation resources, declarative invalidation,
-and stream resource semantics.
+stream resource semantics, and framework-neutral producer lifecycle.
 
 Framework adapters own only rendering integration.
