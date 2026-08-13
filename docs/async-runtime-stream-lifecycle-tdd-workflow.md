@@ -150,11 +150,11 @@ surface changes or at final verification.
 Mark a phase complete only after every task and exit condition in that phase is
 checked.
 
-- [ ] Phase 0: Baseline
-- [ ] Phase 1: Manual cancellation owns producer teardown
-- [ ] Phase 2: Supersession and reload close the previous run
-- [ ] Phase 3: Completion is terminal
-- [ ] Phase 4: Push producers can fail explicitly
+- [x] Phase 0: Baseline
+- [x] Phase 1: Manual cancellation owns producer teardown
+- [x] Phase 2: Supersession and reload close the previous run
+- [x] Phase 3: Completion is terminal
+- [x] Phase 4: Push producers can fail explicitly
 - [ ] Phase 5: Dispose permanently stops the resource
 - [ ] Phase 6: Adapter ownership audit
 - [ ] Phase 7: Push transport proof
@@ -166,14 +166,14 @@ Before changing runtime code:
 
 ### Tasks
 
-- [ ] Run the existing async-runtime tests.
-- [ ] Run async-runtime typecheck.
-- [ ] Run the async-runtime package build.
-- [ ] Confirm the existing stream characterization file contains 19 tests.
-- [ ] Run the React adapter tests.
-- [ ] Run the Vue adapter tests.
-- [ ] Record the command results and current date under `Phase 0 Record`.
-- [ ] Confirm the worktree contains no production changes from this workflow.
+- [x] Run the existing async-runtime tests.
+- [x] Run async-runtime typecheck.
+- [x] Run the async-runtime package build.
+- [x] Confirm the existing stream characterization file contains 19 tests.
+- [x] Run the React adapter tests.
+- [x] Run the Vue adapter tests.
+- [x] Record the command results and current date under `Phase 0 Record`.
+- [x] Confirm the worktree contains no production changes from this workflow.
 
 Commands:
 
@@ -198,21 +198,27 @@ input, observation, batching, and parameterless descriptors.
 ### Phase 0 Record
 
 ```txt
-Date:
+Date: 2026-08-12
 
-async-runtime test:
-async-runtime typecheck:
-async-runtime build:
-React adapter test:
-Vue adapter test:
+async-runtime test: passed, 5 files and 64 tests
+createStreamResource characterization: passed, 19 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+React adapter test: passed, 1 file and 12 tests
+Vue adapter test: passed, 1 file and 9 tests
 
 Notes:
+* The worktree was clean before baseline commands ran.
+* No production source files were changed during Phase 0.
+* Sandbox execution initially blocked esbuild and Vitest workers with
+  `spawn EPERM`. The same commands passed outside the sandbox; this was an
+  execution-environment restriction rather than a project failure.
 ```
 
 Exit condition:
 
-- [ ] Baseline command results are recorded in this document.
-- [ ] No production behavior has changed.
+- [x] Baseline command results are recorded in this document.
+- [x] No production behavior has changed.
 
 ## Phase 1: Manual Cancellation Owns Producer Teardown
 
@@ -226,47 +232,95 @@ cancel aborts the active producer and runs its cleanup exactly once
 
 RED tasks:
 
-- [ ] Add one test that starts a stream and records `ctx.signal`.
-- [ ] Register one observable cleanup through `ctx.onCleanup()`.
-- [ ] Call `meta.cancel("manual")`.
-- [ ] Assert the signal is aborted and exposes the cancellation reason.
-- [ ] Assert cleanup runs exactly once.
-- [ ] Assert status becomes `cancelled` and the existing interruption policy is
+- [x] Add one test that starts a stream and records `ctx.signal`.
+- [x] Register one observable cleanup through `ctx.onCleanup()`.
+- [x] Call `meta.cancel("manual")`.
+- [x] Assert the signal is aborted and exposes the cancellation reason.
+- [x] Assert cleanup runs exactly once.
+- [x] Assert status becomes `cancelled` and the existing interruption policy is
   preserved.
-- [ ] Run the focused test and confirm it fails for the missing lifecycle
+- [x] Run the focused test and confirm it fails for the missing lifecycle
   behavior.
 
 GREEN tasks:
 
-- [ ] Add `StreamCleanup`, `signal`, and `onCleanup()` to the public context.
-- [ ] Introduce only enough per-run lifecycle state to support active
+- [x] Add `StreamCleanup`, `signal`, and `onCleanup()` to the public context.
+- [x] Introduce only enough per-run lifecycle state to support active
   cancellation.
-- [ ] Mark the run closed before aborting its signal.
-- [ ] Drain registered cleanup obligations after the run is closed.
-- [ ] Make the focused test pass.
-- [ ] Run the complete async-runtime stream test file.
+- [x] Mark the run closed before aborting its signal.
+- [x] Drain registered cleanup obligations after the run is closed.
+- [x] Make the focused test pass.
+- [x] Run the complete async-runtime stream test file.
+
+### Cycle 1A Record
+
+```txt
+Date: 2026-08-12
+
+RED: focused test failed because ctx.signal was undefined
+GREEN: focused test passed, 1 test passed and 19 skipped
+stream regression: passed, 1 file and 20 tests
+async-runtime regression: passed, 5 files and 65 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+```
 
 ### Cycle 1B: Cancellation Before Producer Start
 
-- [ ] RED: Add one test that cancels synchronously before the deferred producer
+- [x] RED: Add one test that cancels synchronously before the deferred producer
   invocation.
-- [ ] RED: Assert the stale producer function is never invoked.
-- [ ] RED: Run the focused test and confirm the expected failure.
-- [ ] GREEN: Guard deferred producer invocation with active-run validity.
-- [ ] GREEN: Make the focused and existing tests pass.
+- [x] RED: Assert the stale producer function is never invoked.
+- [x] RED: Run the focused test and confirm the expected failure.
+- [x] GREEN: Guard deferred producer invocation with active-run validity.
+- [x] GREEN: Make the focused and existing tests pass.
+
+### Cycle 1B Record
+
+```txt
+Date: 2026-08-13
+
+RED: focused test failed because the deferred producer was called once with an
+aborted signal
+GREEN: focused test passed, 1 test passed and 20 skipped
+stream regression: passed, 1 file and 21 tests
+async-runtime regression: passed, 5 files and 66 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+```
 
 REFACTOR tasks:
 
-- [ ] Centralize active-run validity checking.
-- [ ] Remove cancellation code duplicated by the new close path.
-- [ ] Run async-runtime test and typecheck after refactoring.
+- [x] Centralize active-run validity checking.
+- [x] Remove cancellation code duplicated by the new close path.
+- [x] Run async-runtime test and typecheck after refactoring.
 
 Exit condition:
 
-- [ ] Add or retain coverage proving repeated `cancel()` does not run cleanup
+- [x] Add or retain coverage proving repeated `cancel()` does not run cleanup
   twice.
-- [ ] Existing finite stream tests remain green.
-- [ ] Phase 1 public types build successfully.
+- [x] Existing finite stream tests remain green.
+- [x] Phase 1 public types build successfully.
+
+### Phase 1 Completion Record
+
+```txt
+Date: 2026-08-13
+
+refactor baseline: passed, 1 stream file and 21 tests
+refactor regression: passed, 1 stream file and 21 tests
+async-runtime regression: passed, 5 files and 66 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+public declarations: StreamCleanup, StreamContext.signal, and
+StreamContext.onCleanup exported
+
+Notes:
+* deactivateRun() now owns active identity, closed state, cancellation state,
+  and active pointer removal.
+* cancelRun() adds AbortSignal and cleanup teardown on top of deactivateRun().
+* input, observe, and reload supersession still do not abort or clean up the
+  previous producer; that behavior remains scoped to Phase 2.
+```
 
 ## Phase 2: Supersession And Reload Close The Previous Run
 
@@ -284,50 +338,136 @@ reload aborts and cleans up the old producer before starting a replacement run
 
 ### Cycle 2A: Input Supersession
 
-- [ ] RED: Add one test that captures the contexts and cleanup calls for two
+- [x] RED: Add one test that captures the contexts and cleanup calls for two
   input-driven runs.
-- [ ] RED: Change tracked input and assert the old signal is aborted.
-- [ ] RED: Assert old cleanup completes before the replacement run becomes
+- [x] RED: Change tracked input and assert the old signal is aborted.
+- [x] RED: Assert old cleanup completes before the replacement run becomes
   authoritative.
-- [ ] RED: Invoke `emit()`, `set()`, and `done()` from the retained old context
+- [x] RED: Invoke `emit()`, `set()`, and `done()` from the retained old context
   and assert they cannot change active state.
-- [ ] RED: Run the focused test and confirm the expected failure.
-- [ ] GREEN: Route input supersession through the shared close-and-replace
+- [x] RED: Run the focused test and confirm the expected failure.
+- [x] GREEN: Route input supersession through the shared close-and-replace
   behavior.
-- [ ] GREEN: Make the focused and existing tests pass.
+- [x] GREEN: Make the focused and existing tests pass.
+
+### Cycle 2A Record
+
+```txt
+Date: 2026-08-13
+
+RED: focused test failed because the superseded run signal remained active and
+its cleanup did not run
+GREEN: focused test passed, 1 test passed and 21 skipped
+stream regression: passed, 1 file and 22 tests
+async-runtime regression: passed, 5 files and 67 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* Reactive input supersession now aborts and cleans up the active run before
+  starting its replacement.
+* Retained emit(), set(), and done() callbacks from the old context remain
+  unable to mutate active value, status, or stable value.
+* reload() still uses the previous logical invalidation path and remains scoped
+  to Cycle 2B.
+```
 
 ### Cycle 2B: Manual Reload
 
-- [ ] RED: Add one test that reloads an active stream.
-- [ ] RED: Assert reload aborts and cleans up the previous run exactly once.
-- [ ] RED: Assert reload starts one replacement run with the current input.
-- [ ] RED: Run the focused test and confirm the expected failure.
-- [ ] GREEN: Route reload through the same close-and-replace behavior.
-- [ ] GREEN: Preserve existing visible-value reset and stable-value behavior.
-- [ ] GREEN: Make the focused and existing tests pass.
+- [x] RED: Add one test that reloads an active stream.
+- [x] RED: Assert reload aborts and cleans up the previous run exactly once.
+- [x] RED: Assert reload starts one replacement run with the current input.
+- [x] RED: Run the focused test and confirm the expected failure.
+- [x] GREEN: Route reload through the same close-and-replace behavior.
+- [x] GREEN: Preserve existing visible-value reset and stable-value behavior.
+- [x] GREEN: Make the focused and existing tests pass.
+
+### Cycle 2B Record
+
+```txt
+Date: 2026-08-13
+
+RED: focused test failed because reload left the previous run signal active and
+did not run its cleanup
+GREEN: focused test passed, 1 test passed and 22 skipped
+stream regression: passed, 1 file and 23 tests
+async-runtime regression: passed, 5 files and 68 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* reload() now closes the active run with reason "reload" before creating its
+  replacement.
+* The replacement uses the current tracked input and starts exactly once.
+* Reload still resets visible value to initialValue while preserving the last
+  stable value.
+```
 
 ### Cycle 2C: Rapid Supersession
 
-- [ ] RED: Add one test that changes input before the deferred old producer
+- [x] RED: Add one test that changes input before the deferred old producer
   invocation starts.
-- [ ] RED: Assert the superseded producer never opens a stale subscription.
-- [ ] RED: Run the focused test and confirm the expected failure.
-- [ ] GREEN: Skip deferred invocation for inactive runs.
-- [ ] GREEN: Make the focused and existing tests pass.
+- [x] RED: Assert the superseded producer never opens a stale subscription.
+- [x] RED: Run the focused test and confirm the expected failure.
+- [x] GREEN: Skip deferred invocation for inactive runs.
+- [x] GREEN: Make the focused and existing tests pass.
+
+### Cycle 2C Record
+
+```txt
+Date: 2026-08-13
+
+RED: focused test observed producer starts for both stale input "a" and current
+input "b"
+GREEN: focused test passed, 1 test passed and 23 skipped
+stream regression: passed, 1 file and 24 tests
+async-runtime regression: passed, 5 files and 69 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* Producer invocation now waits through a microtask checkpoint so queued graph
+  invalidation can close a superseded run first.
+* The existing active-run guard then skips the stale producer invocation.
+* Rapid input supersession starts only the latest producer and does not open a
+  stale subscription.
+```
 
 REFACTOR tasks:
 
-- [ ] Route `observe()` invalidation through the same supersession path.
-- [ ] Remove shared cancellation flags once per-run state owns validity.
-- [ ] Keep active run identity and internal tokens out of public behavior tests.
-- [ ] Run async-runtime test and typecheck after refactoring.
+- [x] Route `observe()` invalidation through the same supersession path.
+- [x] Remove shared cancellation flags once per-run state owns validity.
+- [x] Keep active run identity and internal tokens out of public behavior tests.
+- [x] Run async-runtime test and typecheck after refactoring.
 
 Exit condition:
 
-- [ ] Supersession cleanup occurs before the replacement producer becomes
+- [x] Supersession cleanup occurs before the replacement producer becomes
   authoritative.
-- [ ] Existing batched input and observe behavior still starts one run.
-- [ ] All callbacks from old runs are stale-safe.
+- [x] Existing batched input and observe behavior still starts one run.
+- [x] All callbacks from old runs are stale-safe.
+
+### Phase 2 Completion Record
+
+```txt
+Date: 2026-08-13
+
+observe characterization: passed directly GREEN, 1 test passed and 23 skipped
+stream regression after refactor: passed, 1 file and 24 tests
+async-runtime regression: passed, 5 files and 69 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* input(), observe(), and reload replacement now share replaceRun().
+* observe invalidation aborts and cleans up the old run before the replacement
+  producer starts, while keeping the observed revision out of producer input.
+* The runtime has one active run pointer and per-run cancellation state; the
+  former shared version and cancellation flags are gone.
+* Public behavior tests retain only StreamContext references and never inspect
+  active run identity, private tokens, or cleanup collections.
+* Batched input and observe changes still produce one replacement session.
+```
 
 ## Phase 3: Completion Is Terminal
 
@@ -345,38 +485,108 @@ cleanup registered after a run closes executes immediately
 
 ### Cycle 3A: Terminal Completion
 
-- [ ] RED: Add one test that calls `done()` and retains the completed context.
-- [ ] RED: Call `emit()`, `set()`, and `done()` again from that context.
-- [ ] RED: Assert visible value, stable value, status, and `onSuccess` do not
+- [x] RED: Add one test that calls `done()` and retains the completed context.
+- [x] RED: Call `emit()`, `set()`, and `done()` again from that context.
+- [x] RED: Assert visible value, stable value, status, and `onSuccess` do not
   change after the first completion.
-- [ ] RED: Assert completion runs every registered cleanup once.
-- [ ] RED: Run the focused test and confirm the expected failure.
-- [ ] GREEN: Close the run before stable commit effects and cleanup execute.
-- [ ] GREEN: Ignore every mutation from the completed context.
-- [ ] GREEN: Make the focused and existing tests pass.
+- [x] RED: Assert completion runs every registered cleanup once.
+- [x] RED: Run the focused test and confirm the expected failure.
+- [x] GREEN: Close the run before stable commit effects and cleanup execute.
+- [x] GREEN: Ignore every mutation from the completed context.
+- [x] GREEN: Make the focused and existing tests pass.
+
+#### Cycle 3A Completion Record
+
+```txt
+Date: 2026-08-13
+
+RED: failed as expected because done() executed 0 of 2 cleanup registrations
+GREEN: focused test passed, 1 test passed and 24 skipped
+stream regression: passed, 1 file and 25 tests
+async-runtime regression: passed, 5 files and 70 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* done() closes the active run before committing its stable value and success
+  status.
+* Completion drains every cleanup registration exactly once, including
+  duplicate registrations of the same function.
+* emit(), set(), and repeated done() calls from the completed context are
+  ignored.
+* Successful completion is terminal but is not reported as cancellation by
+  isCancelled().
+```
 
 ### Cycle 3B: Late Cleanup Registration
 
-- [ ] RED: Add one test that cancels or completes while async setup is pending.
-- [ ] RED: Register cleanup only after the run has closed.
-- [ ] RED: Assert the late cleanup executes immediately and only once.
-- [ ] RED: Run the focused test and confirm the expected failure.
-- [ ] GREEN: Execute cleanup immediately when registration occurs on a closed
+- [x] RED: Add one test that cancels or completes while async setup is pending.
+- [x] RED: Register cleanup only after the run has closed.
+- [x] RED: Assert the late cleanup executes immediately and only once.
+- [x] RED: Run the focused test and confirm the expected failure.
+- [x] GREEN: Execute cleanup immediately when registration occurs on a closed
   run.
-- [ ] GREEN: Make the focused and existing tests pass.
+- [x] GREEN: Make the focused and existing tests pass.
+
+#### Cycle 3B Completion Record
+
+```txt
+Date: 2026-08-13
+
+RED: failed as expected because the closed run discarded late cleanup,
+     leaving its call count at 0
+GREEN: focused test passed, 1 test passed and 25 skipped
+stream regression: passed, 1 file and 26 tests
+async-runtime regression: passed, 5 files and 71 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* A producer may finish asynchronous setup after its run has already closed.
+* onCleanup() executes such a late registration before returning and does not
+  retain it for another cleanup pass.
+* Cleanup failures remain isolated from resource lifecycle state.
+* The behavior depends only on run closure, so it applies equally to
+  completion, cancellation, reload, and source supersession.
+```
 
 REFACTOR tasks:
 
-- [ ] Drain cleanup registrations without function-identity deduplication.
-- [ ] Ensure duplicate registrations represent separate cleanup obligations.
-- [ ] Keep cleanup behavior independent of transport type.
-- [ ] Run async-runtime test and typecheck after refactoring.
+- [x] Drain cleanup registrations without function-identity deduplication.
+- [x] Ensure duplicate registrations represent separate cleanup obligations.
+- [x] Keep cleanup behavior independent of transport type.
+- [x] Run async-runtime test and typecheck after refactoring.
 
 Exit condition:
 
-- [ ] `onSuccess` runs at most once for a run.
-- [ ] A late-created subscription cannot leak after its run has closed.
-- [ ] Emissions after `done()` are ignored.
+- [x] `onSuccess` runs at most once for a run.
+- [x] A late-created subscription cannot leak after its run has closed.
+- [x] Emissions after `done()` are ignored.
+
+### Phase 3 Completion Record
+
+```txt
+Date: 2026-08-13
+
+refactor baseline: passed, 2 focused tests and 24 skipped
+refactor verification: passed, 2 focused tests and 24 skipped
+stream regression: passed, 1 file and 26 tests
+async-runtime regression: passed, 5 files and 71 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* This was a GREEN-to-GREEN TDD refactor because Cycles 3A and 3B already
+  specified the required public behavior.
+* Cleanup registrations are detached from the run before execution and are
+  drained in their existing LIFO order.
+* No function-identity deduplication occurs; duplicate registrations remain
+  separate teardown obligations.
+* Lifecycle cleanup remains expressed only as StreamCleanup callbacks, without
+  WebSocket, SSE, Observable, or framework-specific transport assumptions.
+* Completion closes run authority, invokes onSuccess at most once, rejects all
+  later mutations, and immediately tears down cleanup registered after close.
+```
 
 ## Phase 4: Push Producers Can Fail Explicitly
 
@@ -388,43 +598,149 @@ a callback-based producer can fail the active stream through ctx.fail(error)
 
 ### Cycle 4A: Callback Failure
 
-- [ ] RED: Add one test whose producer returns after registering a callback.
-- [ ] RED: Call `ctx.fail(error)` through the retained callback.
-- [ ] RED: Assert error value, `error` status, interruption policy, cleanup, and
+- [x] RED: Add one test whose producer returns after registering a callback.
+- [x] RED: Call `ctx.fail(error)` through the retained callback.
+- [x] RED: Assert error value, `error` status, interruption policy, cleanup, and
   `onErrorEffect`.
-- [ ] RED: Run the focused test and confirm the missing `fail()` behavior.
-- [ ] GREEN: Add the error generic and `fail(error)` to `StreamContext`.
-- [ ] GREEN: Implement one terminal error transition.
-- [ ] GREEN: Make the focused and existing tests pass.
+- [x] RED: Run the focused test and confirm the missing `fail()` behavior.
+- [x] GREEN: Add the error generic and `fail(error)` to `StreamContext`.
+- [x] GREEN: Implement one terminal error transition.
+- [x] GREEN: Make the focused and existing tests pass.
+
+#### Cycle 4A Completion Record
+
+```txt
+Date: 2026-08-13
+
+RED: failed as expected with "ctx.fail is not a function"
+GREEN: focused test passed, 1 test passed and 26 skipped
+stream regression: passed, 1 file and 27 tests
+async-runtime regression: passed, 5 files and 72 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* StreamContext now carries the resource error type as an optional third
+  generic and exposes fail(error).
+* A retained push callback can fail an active run after the producer function
+  has returned.
+* Callback failure first closes run authority, then applies the configured
+  error policy, records the error status, drains cleanup, and invokes
+  onErrorEffect.
+* Failure is terminal but is not reported as cancellation and does not abort
+  the run signal.
+* Promise rejection retains its existing path until Cycle 4C unifies producer
+  failures.
+```
 
 ### Cycle 4B: Failure Isolation
 
-- [ ] RED: Add one test proving stale-run `fail()` is ignored.
-- [ ] GREEN: Make the stale failure test pass without changing active state.
-- [ ] RED: Add one test proving repeated `fail()` affects state and effects once.
-- [ ] GREEN: Make repeated failure idempotent.
-- [ ] Run the focused and existing tests after each cycle.
+- [x] RED: Add one test proving stale-run `fail()` is ignored.
+- [x] GREEN: Make the stale failure test pass without changing active state.
+- [x] RED: Add one test proving repeated `fail()` affects state and effects once.
+- [x] GREEN: Make repeated failure idempotent.
+- [x] Run the focused and existing tests after each cycle.
+
+#### Cycle 4B Completion Record
+
+```txt
+Date: 2026-08-13
+
+stale failure characterization: passed directly GREEN,
+                                1 test passed and 27 skipped
+stream regression after stale failure: passed, 1 file and 28 tests
+repeated failure characterization: passed directly GREEN,
+                                   1 test passed and 28 skipped
+stream regression after repeated failure: passed, 1 file and 29 tests
+async-runtime regression: passed, 5 files and 74 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* Both new behavior tests passed without a production change because Cycle 4A
+  already made failure a terminal active-run transition.
+* A superseded context cannot close the replacement run, overwrite its value,
+  set its error, or invoke its error effect.
+* The first fail(error) closes run authority, so later failures from the same
+  context cannot replace the committed error or rerun cleanup and effects.
+* The tests retain only public StreamContext references and do not inspect
+  internal run identity or closed flags.
+```
 
 ### Cycle 4C: Unified Error Path
 
-- [ ] RED: Add or tighten tests comparing synchronous throw, Promise rejection,
+- [x] RED: Add or tighten tests comparing synchronous throw, Promise rejection,
   and `ctx.fail()`.
-- [ ] RED: Assert all three forms have the same observable error-policy result.
-- [ ] GREEN: Route all producer failures through the same terminal path.
-- [ ] GREEN: Confirm Promise fulfillment still does not imply `done()`.
-- [ ] Run the focused and existing tests.
+- [x] RED: Assert all three forms have the same observable error-policy result.
+- [x] GREEN: Route all producer failures through the same terminal path.
+- [x] GREEN: Confirm Promise fulfillment still does not imply `done()`.
+- [x] Run the focused and existing tests.
+
+#### Cycle 4C Completion Record
+
+```txt
+Date: 2026-08-13
+
+failure parity RED: failed as expected because synchronous throw executed
+                    0 registered cleanups
+failure parity GREEN: passed, 1 test passed and 29 skipped
+fulfillment characterization: passed directly GREEN,
+                              1 test passed and 30 skipped
+combined focused verification: passed, 2 tests passed and 29 skipped
+stream regression: passed, 1 file and 31 tests
+async-runtime regression: passed, 5 files and 76 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* Synchronous throw, returned Promise rejection, and ctx.fail(error) now enter
+  the same failRun() terminal transition.
+* All three forms record the same error, apply rollback, drain cleanup, invoke
+  onErrorEffect once, and reject later context emissions.
+* Stale Promise rejection remains harmless because failRun() owns the active
+  run guard.
+* Producer Promise fulfillment leaves the run open and does not commit stable
+  value or imply done(); retained push callbacks may continue emitting.
+```
 
 REFACTOR tasks:
 
-- [ ] Remove duplicated error transition code.
-- [ ] Keep producer failure separate from transport retry policy.
-- [ ] Run async-runtime test and typecheck after refactoring.
+- [x] Remove duplicated error transition code.
+- [x] Keep producer failure separate from transport retry policy.
+- [x] Run async-runtime test and typecheck after refactoring.
 
 Exit condition:
 
-- [ ] All error policies work for returned Promise errors and callback failure.
-- [ ] Promise fulfillment still does not imply completion.
-- [ ] Closed-run failures cannot change state or rerun effects.
+- [x] All error policies work for returned Promise errors and callback failure.
+- [x] Promise fulfillment still does not imply completion.
+- [x] Closed-run failures cannot change state or rerun effects.
+
+### Phase 4 Completion Record
+
+```txt
+Date: 2026-08-13
+
+focused baseline: passed, 5 tests passed and 26 skipped
+callback error-policy matrix: passed directly GREEN,
+                              1 test passed and 31 skipped
+stream regression: passed, 1 file and 32 tests
+async-runtime regression: passed, 5 files and 77 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* Cycle 4C removed the former Promise-catch error transition duplication;
+  ctx.fail(), synchronous throw, and Promise rejection now share failRun().
+* Callback failure was verified against rollback, keep-partial, and clear with
+  distinct initial, stable, and partial values so each policy branch has an
+  observable result.
+* Returned Promise rejection already has direct coverage for all three error
+  policies.
+* Promise fulfillment remains non-terminal, while stale and repeated failures
+  cannot alter state or rerun cleanup and effects.
+* The runtime terminates failed runs but defines no reconnect, backoff, or retry
+  behavior; those transport policies remain producer or application concerns.
+```
 
 ## Phase 5: Dispose Permanently Stops The Resource
 
