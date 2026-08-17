@@ -158,7 +158,7 @@ checked.
 - [x] Phase 5: Dispose permanently stops the resource
 - [x] Phase 6: Adapter ownership audit
 - [x] Phase 7: Push transport proof
-- [ ] Phase 8: Refactor, documentation, and verification
+- [x] Phase 8: Refactor, documentation, and verification
 
 ## Phase 0: Baseline
 
@@ -1070,33 +1070,33 @@ While all tests are green:
 
 ### Refactor Tasks
 
-- [ ] Simplify active-run lifecycle code.
-- [ ] Remove obsolete shared cancellation state.
-- [ ] Keep terminal transitions behind one internal boundary.
-- [ ] Review cleanup reentrancy and exactly-once behavior.
-- [ ] Confirm closed-run guards are applied consistently.
-- [ ] Run focused tests after each refactor step.
+- [x] Simplify active-run lifecycle code.
+- [x] Remove obsolete shared cancellation state.
+- [x] Keep terminal transitions behind one internal boundary.
+- [x] Review cleanup reentrancy and exactly-once behavior.
+- [x] Confirm closed-run guards are applied consistently.
+- [x] Run focused tests after each refactor step.
 
 ### Documentation Tasks
 
-- [ ] Update `packages/async-runtime/README.md`.
-- [ ] Update `packages/async-runtime/AI_USAGE.md`.
-- [ ] Update React package documentation only if its public surface changes.
-- [ ] Update Vue package documentation only if its public surface changes.
-- [ ] Verify examples still teach object-form descriptors.
-- [ ] Add release notes for the v0.4 lifecycle contract.
+- [x] Update `packages/async-runtime/README.md`.
+- [x] Update `packages/async-runtime/AI_USAGE.md`.
+- [x] Update React package documentation only if its public surface changes.
+- [x] Update Vue package documentation only if its public surface changes.
+- [x] Verify examples still teach object-form descriptors.
+- [x] Add release notes for the v0.4 lifecycle contract.
 
 ### Verification Tasks
 
-- [ ] Run async-runtime tests.
-- [ ] Run async-runtime typecheck.
-- [ ] Run async-runtime build.
-- [ ] Run React adapter tests.
-- [ ] Run Vue adapter tests.
-- [ ] Run repository-wide typecheck.
-- [ ] Run repository-wide tests.
-- [ ] Review the final diff for unrelated changes.
-- [ ] Run `git diff --check`.
+- [x] Run async-runtime tests.
+- [x] Run async-runtime typecheck.
+- [x] Run async-runtime build.
+- [x] Run React adapter tests.
+- [x] Run Vue adapter tests.
+- [x] Run repository-wide typecheck.
+- [x] Run repository-wide tests.
+- [x] Review the final diff for unrelated changes.
+- [x] Run `git diff --check`.
 
 Final commands:
 
@@ -1110,19 +1110,62 @@ pnpm -r typecheck
 pnpm -r test
 ```
 
+### Phase 8 Completion Record
+
+```txt
+Date: 2026-08-17
+
+Refactor:
+* Removed the redundant reactive status guard from active-run cancellation.
+  Active run identity is now the single cancellation eligibility check.
+* Retained closed for late cleanup registration and cancelled for the public
+  isCancelled() contract; neither field is obsolete.
+* Confirmed done(), fail(), cancellation, supersession, reload, and disposal
+  all close through closeRun() before cleanup or effects.
+* Confirmed cleanup reentrancy, duplicate registration obligations, late
+  registration, and closed-run mutation guards remain covered.
+* Updated the Hono runtime owner teardown to call executionMeta.dispose()
+  instead of preserving observation through cancel().
+
+Documentation:
+* README and AI_USAGE now document signal, onCleanup(), fail(), dispose(),
+  producer-return semantics, and framework-neutral subscription ownership.
+* React and Vue docs required no Phase 8 change because their public surface
+  did not change after the Phase 6 ownership audit.
+* Every example implementation continues to use object-form resource
+  descriptors.
+* CHANGELOG contains v0.4 lifecycle release notes; package.json version remains
+  unchanged until the release operation.
+
+Verification:
+* createStreamResource focused regression passed, 42 tests.
+* async-runtime regression passed, 5 files and 87 tests.
+* async-runtime lint, typecheck, and CJS/ESM/DTS build passed.
+* React adapter regression passed, 12 tests.
+* Vue adapter regression passed, 9 tests.
+* Initial workspace typecheck found an outdated Hono JobStreamContext fixture.
+* Hono context error generic and fixtures were aligned; its 16 tests and
+  focused typecheck passed.
+* Repository-wide typecheck passed for all 14 participating projects.
+* Repository-wide recursive tests passed, 221 tests in total.
+* Final diff contains only lifecycle refactor, Hono type and ownership
+  alignment, workflow records, and async-runtime documentation/release notes.
+* git diff --check passed.
+```
+
 ## Acceptance Criteria
 
 The work is complete when:
 
-- [ ] Existing finite and LLM-style stream producers remain source-compatible.
-- [ ] Push producers can abort, clean up, fail, complete, and dispose.
-- [ ] Every closed run rejects stale callbacks.
-- [ ] Cleanup is deterministic and exactly once per registration.
-- [ ] `dispose()` permanently stops reactive observation.
-- [ ] Framework adapters do not implicitly own shared resources.
-- [ ] SSE, WebSocket, Observable, and event subscription patterns can be
+- [x] Existing finite and LLM-style stream producers remain source-compatible.
+- [x] Push producers can abort, clean up, fail, complete, and dispose.
+- [x] Every closed run rejects stale callbacks.
+- [x] Cleanup is deterministic and exactly once per registration.
+- [x] `dispose()` permanently stops reactive observation.
+- [x] Framework adapters do not implicitly own shared resources.
+- [x] SSE, WebSocket, Observable, and event subscription patterns can be
   expressed without transport-specific runtime APIs.
-- [ ] Runtime, adapter, and repository verification commands pass.
+- [x] Runtime, adapter, and repository verification commands pass.
 
 ## Release Guidance
 

@@ -172,16 +172,6 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
   }
 
   function cancelActiveResourceRun(reason?: unknown) {
-    const status = statusSig.get();
-    if (
-      status === "idle" ||
-      status === "success" ||
-      status === "error" ||
-      status === "cancelled"
-    ) {
-      return;
-    }
-
     const run = activeRun;
     if (!run || !cancelRun(run, reason)) return;
 

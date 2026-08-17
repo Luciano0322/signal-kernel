@@ -1,5 +1,15 @@
 # @signal-kernel/async-runtime
 
+## 0.4.0
+
+### Minor Changes
+
+- Extend `createStreamResource()` for finite and long-lived push producers without adding transport-specific primitives.
+- Add `StreamContext.signal`, `StreamContext.onCleanup()`, and `StreamContext.fail()` for abort propagation, subscription teardown, and callback-driven terminal failure.
+- Add `StreamAsyncMeta.dispose()` to permanently stop the active producer and reactive observation.
+- Make completion, failure, cancellation, supersession, reload, and disposal close each run before cleanup, preventing stale callbacks from mutating current state.
+- Preserve object-form descriptors, finite stream behavior, stable-value semantics, and the v0.x positional compatibility shorthand.
+
 ## 0.3.1
 
 ### Patch Changes

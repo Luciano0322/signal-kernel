@@ -6,6 +6,7 @@ import type {
   JobAnalyzeStream,
   JobExecutionChunk,
   JobExecutionState,
+  JobStreamContext,
 } from "./jobTypes";
 
 function createDeferred<T = void>() {
@@ -30,6 +31,23 @@ async function flushMicrotasks() {
   }
 }
 
+function createTestStreamContext(
+  overrides: Partial<JobStreamContext> = {},
+): JobStreamContext {
+  const controller = new AbortController();
+
+  return {
+    emit: () => undefined,
+    set: () => undefined,
+    done: () => undefined,
+    fail: () => undefined,
+    signal: controller.signal,
+    onCleanup: () => undefined,
+    isCancelled: () => false,
+    ...overrides,
+  };
+}
+
 describe("createJobRuntime", () => {
   it("models document analysis as four progressive stream chunks", async () => {
     const chunks: JobExecutionChunk[] = [];
@@ -40,8 +58,10 @@ describe("createJobRuntime", () => {
         attempt: 1,
         content: "Runtime notes",
       },
-      {
-        emit: (chunk) => chunks.push(chunk),
+      createTestStreamContext({
+        emit: (chunk) => {
+          chunks.push(chunk);
+        },
         set: (value) => {
           finalValue = value;
         },
@@ -49,7 +69,7 @@ describe("createJobRuntime", () => {
           finalValue = value;
         },
         isCancelled: () => false,
-      },
+      }),
       {
         wait: async () => undefined,
       },
@@ -79,8 +99,10 @@ describe("createJobRuntime", () => {
         attempt: 0,
         content: "Cancelled notes",
       },
-      {
-        emit: (chunk) => chunks.push(chunk),
+      createTestStreamContext({
+        emit: (chunk) => {
+          chunks.push(chunk);
+        },
         set: (value) => {
           finalValue = value;
         },
@@ -88,7 +110,7 @@ describe("createJobRuntime", () => {
           finalValue = value;
         },
         isCancelled: () => chunks.length > 0,
-      },
+      }),
       {
         wait: async () => undefined,
       },

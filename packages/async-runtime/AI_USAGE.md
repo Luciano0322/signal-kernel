@@ -20,6 +20,8 @@ It provides primitives for modeling asynchronous work as part of a reactive runt
 * explicit async state tracking
 * source-driven re-execution
 * streaming async delivery for incremental updates
+* producer abort signals, cleanup registration, and stale callback isolation
+* explicit terminal failure and permanent resource disposal
 
 This package should be understood as part of a runtime/kernel architecture, not as a UI-framework-specific feature.
 
@@ -141,6 +143,10 @@ Use this when async work emits multiple updates over time and should stay bound 
 
 Prefer object form with `input`, `observe`, and `stream` in new examples. The older positional shape can be treated as a v0.x compatibility shorthand, but it should not be the primary teaching form.
 
+Returning from `stream()` does not complete the resource. Finite producers must call `ctx.done()`. Push producers may remain active until source replacement, cancellation, or disposal.
+
+Use `ctx.signal` for abort-aware APIs, `ctx.onCleanup()` for subscription teardown, and `ctx.fail(error)` for unrecoverable callback failures. Use `meta.dispose()` only when the caller owns the whole resource lifetime; consumer unmount alone does not prove ownership of a shared graph resource.
+
 This should be the default recommendation for stream-shaped data rather than forcing streaming use cases into `createResource` or manual effect code.
 
 ---
@@ -184,6 +190,10 @@ Do not assume that entering pending always clears the current value.
 For streaming APIs, emitted values belong to the currently active stream instance.
 
 When the source changes, previous streams must be cleaned up or logically detached so that outdated emissions do not keep mutating current state.
+
+Each producer run receives its own `AbortSignal` and cleanup registrations. A closed run cannot emit, set, complete, or fail. Cleanup registered after closure executes immediately so late async setup cannot leak a subscription.
+
+`cancel()` closes only the active run and keeps reactive observation available for later input changes. `dispose()` closes the active run, stops observation permanently, and makes later reload calls no-ops.
 
 ---
 
@@ -290,12 +300,23 @@ Example shape:
 const roomId = signal("general");
 const [messages, meta] = createStreamResource({
   input: roomId.get,
-  stream: (currentRoomId, ctx) =>
-    connectMessageStream(currentRoomId, ctx),
+  stream: (currentRoomId, ctx) => {
+    const subscription = messageSource(currentRoomId).subscribe({
+      next: ctx.emit,
+      error: ctx.fail,
+      complete: () => ctx.done(),
+    });
+
+    ctx.onCleanup(() => subscription.unsubscribe());
+  },
+  initialValue: [],
+  reduce: (current = [], message) => [...current, message],
 });
 ```
 
 This is the preferred style for streaming data that should reconnect, invalidate, and detach correctly when the reactive source changes.
+
+Do not add Vue `onScopeDispose()` or React unmount ownership inside async-runtime. Framework adapters may expose metadata, while application code explicitly connects `meta.dispose()` to the lifecycle that truly owns the resource.
 
 ---
 

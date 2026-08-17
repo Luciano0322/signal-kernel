@@ -178,13 +178,14 @@ await updateUserMeta.run({ id: "u1", name: "Alice" });
 
 `createStreamResource()` is the streaming sibling primitive of `createResource()`.
 
-While `createResource()` models a single-shot async task that resolves once, `createStreamResource()` models an async task that can emit multiple chunks over time before reaching a final completion state.
+While `createResource()` models a single-shot async task that resolves once, `createStreamResource()` models work that can emit multiple chunks over time. A finite producer may call `done()`, while a long-lived push producer may remain active until cancellation or disposal.
 
 It is intended for cases such as:
 
 * LLM text streaming
 * structured incremental generation
 * server-sent events
+* WebSocket and Observable subscriptions
 * progressive aggregation
 * long-running tasks with partial visible output
 
@@ -204,11 +205,25 @@ type StreamInterruptionPolicy =
   | "rollback"
   | "clear";
 
-interface StreamContext<TChunk, TValue> {
+type StreamCleanup = () => void;
+
+interface StreamContext<TChunk, TValue, E = unknown> {
   emit(chunk: TChunk): void;
   set(value: TValue): void;
   done(finalValue?: TValue): void;
+  fail(error: E): void;
+  readonly signal: AbortSignal;
+  onCleanup(cleanup: StreamCleanup): void;
   isCancelled(): boolean;
+}
+
+interface StreamAsyncMeta<E, TValue> {
+  status(): StreamAsyncStatus;
+  error(): E | undefined;
+  reload(): void;
+  cancel(reason?: unknown): void;
+  dispose(): void;
+  stableValue(): TValue | undefined;
 }
 
 createStreamResource<I, TChunk, TValue, E = unknown>({
@@ -241,6 +256,10 @@ A stream resource separates **visible accumulated value** from **stable committe
 * The returned getter represents the **currently visible accumulated value**
 * `stableValue()` represents the **last successfully committed value**
 * `status()` can be `idle`, `pending`, `streaming`, `success`, `error`, or `cancelled`
+* Returning from `stream()` does not imply completion; only `ctx.done()` commits success
+* `ctx.fail(error)`, a synchronous throw, and a rejected producer Promise use the same terminal error path
+* Source replacement, reload, cancel, and dispose abort the active `ctx.signal` and run registered cleanup
+* Closed runs ignore later `emit()`, `set()`, `done()`, and `fail()` calls
 
 This allows streaming UIs to expose partial output while still preserving a stable-state model for higher-level logic.
 
@@ -269,10 +288,14 @@ const prompt = signal("Explain signals simply");
 const [text, meta] = createStreamResource({
   input: prompt.get,
   stream: async (input, ctx) => {
-    const chunks = ["Signals ", "track ", "dependencies."];
-    for (const chunk of chunks) {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ prompt: input }),
+      signal: ctx.signal,
+    });
+
+    for await (const chunk of readChunks(response)) {
       if (ctx.isCancelled()) return;
-      await delay(50);
       ctx.emit(chunk);
     }
     ctx.done();
@@ -290,11 +313,41 @@ createEffect(() => {
 });
 ```
 
+### Push subscription example
+
+The runtime does not construct WebSocket, EventSource, or Observable objects. The producer owns transport setup and registers teardown with the active run:
+
+```ts
+const [messages, meta] = createStreamResource({
+  input: channelId.get,
+  stream: (channel, ctx) => {
+    const subscription = messageSource(channel).subscribe({
+      next: ctx.emit,
+      error: ctx.fail,
+      complete: () => ctx.done(),
+    });
+
+    ctx.onCleanup(() => subscription.unsubscribe());
+  },
+  initialValue: [],
+  reduce: (current = [], message) => [...current, message],
+});
+
+// cancel() stops only the current run; tracked input can start another run.
+meta.cancel("temporarily-paused");
+
+// dispose() permanently stops the resource and its reactive observation.
+meta.dispose();
+```
+
+Application or framework integration code decides who owns `dispose()`. React or Vue consumer unmount must not implicitly dispose a shared graph resource.
+
 ### Key features
 
 * Supports progressive visible async state.
 * Separates current visible value from last committed stable value.
 * Tracks `input()` and `observe()` dependencies for stream resubscription.
+* Supports AbortSignal propagation, exactly-once cleanup obligations, explicit callback failure, and permanent disposal.
 * Allows explicit cancellation/error policies (`keep-partial`, `rollback`, `clear`).
 * Fits naturally into the same deterministic runtime model as `createResource()`.
 
@@ -475,7 +528,8 @@ The package exports the async-related types:
 * `InvalidationTarget`
 * `StreamAsyncStatus`
 * `StreamInterruptionPolicy`
-* `StreamContext<TChunk, TValue>`
+* `StreamCleanup`
+* `StreamContext<TChunk, TValue, E>`
 * `StreamResourceOptions<TChunk, TValue, E>`
 * `StreamResourceDescriptor<I, TChunk, TValue, E>`
 * `StreamAsyncMeta<E, TValue>`

@@ -227,7 +227,7 @@ export function createJobRuntime(options: JobRuntimeOptions): JobRuntime {
     if (disposed) return;
 
     disposed = true;
-    executionMeta.cancel("job-disposed");
+    executionMeta.dispose();
     stopNotify();
     listeners.clear();
   }
