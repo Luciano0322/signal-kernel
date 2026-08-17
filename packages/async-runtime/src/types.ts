@@ -26,18 +26,24 @@ export type StreamInterruptionPolicy =
   | "rollback"
   | "clear";
 
+export type StreamCleanup = () => void;
+
 export interface StreamAsyncMeta<E, TValue> {
   status: () => StreamAsyncStatus;
   error: () => E | undefined;
   reload: () => void;
   cancel: (reason?: unknown) => void;
+  dispose: () => void;
   stableValue: () => TValue | undefined;
 }
 
-export interface StreamContext<TChunk, TValue> {
+export interface StreamContext<TChunk, TValue, E = unknown> {
   emit: (chunk: TChunk) => void;
   set: (value: TValue) => void;
   done: (finalValue?: TValue) => void;
+  fail: (error: E) => void;
+  readonly signal: AbortSignal;
+  onCleanup: (cleanup: StreamCleanup) => void;
   isCancelled: () => boolean;
 }
 

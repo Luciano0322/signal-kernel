@@ -1,5 +1,9 @@
 import { computed, signal } from "@signal-kernel/core";
-import { createResource, createRevision } from "@signal-kernel/async-runtime";
+import {
+  createResource,
+  createRevision,
+  createStreamResource,
+} from "@signal-kernel/async-runtime";
 import type {
   Job,
   JobEvent,
@@ -73,6 +77,7 @@ export function createJobKernel(options: CreateJobKernelOptions) {
   const eventStreamStatus = signal<JobEventStreamStatus>("idle");
   const lastEventAt = signal<number | null>(null);
   const streamError = signal<unknown | undefined>(undefined);
+  const eventStreamEnabled = signal(false);
   const jobsRevision = createRevision();
 
   function updateJob(jobId: string, updater: (job: Job) => Job) {
@@ -186,6 +191,44 @@ export function createJobKernel(options: CreateJobKernelOptions) {
     invalidates: () => [jobsRevision],
   });
 
+  const jobEventsResource = createStreamResource<
+    boolean,
+    JobEvent,
+    JobEvent | null
+  >({
+    input: eventStreamEnabled.get,
+    stream: (enabled, ctx) => {
+      if (!enabled) {
+        ctx.done(null);
+        return;
+      }
+
+      const unsubscribe = transport.subscribeJobEvents(
+        (event) => {
+          if (ctx.isCancelled()) return;
+          ctx.emit(event);
+          dispatchJobEvent(event);
+        },
+        {
+          onStatusChange: (status) => {
+            if (!ctx.isCancelled()) eventStreamStatus.set(status);
+          },
+          onError: (error) => {
+            if (!ctx.isCancelled()) streamError.set(error);
+          },
+        },
+      );
+
+      ctx.onCleanup(unsubscribe);
+    },
+    initialValue: null,
+    reduce: (_current, event) => event,
+    onErrorEffect: (error) => {
+      streamError.set(error);
+      eventStreamStatus.set("closed");
+    },
+  });
+
   const filteredJobs = computed(() => {
     const currentJobs = jobs.get();
     const filter = statusFilter.get();
@@ -273,20 +316,17 @@ export function createJobKernel(options: CreateJobKernelOptions) {
     };
   });
 
-  let stopEvents: (() => void) | undefined;
-
   function start() {
-    if (stopEvents) return;
+    if (eventStreamEnabled.peek()) return;
     eventStreamStatus.set("connecting");
-    stopEvents = transport.subscribeJobEvents(dispatchJobEvent, {
-      onStatusChange: (status) => eventStreamStatus.set(status),
-      onError: (error) => streamError.set(error),
-    });
+    eventStreamEnabled.set(true);
   }
 
   function stop() {
-    stopEvents?.();
-    stopEvents = undefined;
+    if (eventStreamEnabled.peek()) {
+      jobEventsResource[1].cancel("stopped");
+    }
+    eventStreamEnabled.set(false);
     eventStreamStatus.set("closed");
   }
 
@@ -354,6 +394,7 @@ export function createJobKernel(options: CreateJobKernelOptions) {
     },
     resources: {
       jobsResource,
+      jobEventsResource,
     },
     revisions: {
       jobsRevision,

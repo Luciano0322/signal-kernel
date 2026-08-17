@@ -2,10 +2,18 @@ import { batch, createEffect, signal } from "@signal-kernel/core";
 import type {
   StreamAsyncMeta,
   StreamAsyncStatus,
+  StreamCleanup,
   StreamContext,
   StreamInterruptionPolicy,
   StreamResourceOptions,
 } from "./types";
+
+interface ActiveStreamRun {
+  controller: AbortController;
+  cleanups: StreamCleanup[];
+  closed: boolean;
+  cancelled: boolean;
+}
 
 export interface StreamResourceDescriptor<
   I,
@@ -17,7 +25,7 @@ export interface StreamResourceDescriptor<
   observe?: () => void;
   stream: (
     input: I,
-    ctx: StreamContext<TChunk, TValue>,
+    ctx: StreamContext<TChunk, TValue, E>,
   ) => Promise<void> | void;
 }
 
@@ -46,7 +54,7 @@ export function createStreamResource<S, TChunk, TValue, E = unknown>(
   source: () => S,
   streamer: (
     sourceValue: S,
-    ctx: StreamContext<TChunk, TValue>,
+    ctx: StreamContext<TChunk, TValue, E>,
   ) => Promise<void> | void,
   options?: StreamResourceOptions<TChunk, TValue, E>,
 ): [() => TValue | undefined, StreamAsyncMeta<E, TValue>];
@@ -62,7 +70,7 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
     | StreamResourceDescriptor<I, TChunk, TValue, E>,
   streamer?: (
     sourceValue: I,
-    ctx: StreamContext<TChunk, TValue>,
+    ctx: StreamContext<TChunk, TValue, E>,
   ) => Promise<void> | void,
   options: StreamResourceOptions<TChunk, TValue, E> = {},
 ): [() => TValue | undefined, StreamAsyncMeta<E, TValue>] {
@@ -87,9 +95,9 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
   const statusSig = signal<StreamAsyncStatus>("idle");
   const errorSig = signal<E | undefined>(undefined);
 
-  let version = 0;
-  let activeVersion = 0;
-  let cancelled = false;
+  let activeRun: ActiveStreamRun | null = null;
+  let disposed = false;
+  let stopObservation: (() => void) | undefined;
 
   function resetForNewRun() {
     batch(() => {
@@ -99,24 +107,73 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
     });
   }
 
-  function invalidateActiveRun() {
-    cancelled = true;
+  function isActiveRun(run: ActiveStreamRun) {
+    return activeRun === run && !run.closed;
   }
 
-  function manualCancel(reason?: unknown) {
-    void reason;
+  function closeRun(run: ActiveStreamRun, cancelled: boolean) {
+    if (!isActiveRun(run)) return false;
 
-    const status = statusSig.get();
-    if (
-      status === "idle" ||
-      status === "success" ||
-      status === "error" ||
-      status === "cancelled"
-    ) {
-      return;
+    run.closed = true;
+    run.cancelled = cancelled;
+    activeRun = null;
+    return true;
+  }
+
+  function runCleanup(cleanup: StreamCleanup) {
+    try {
+      cleanup();
+    } catch {
+      // Cleanup failures must not interrupt the remaining lifecycle work.
     }
+  }
 
-    cancelled = true;
+  function drainCleanups(run: ActiveStreamRun) {
+    const cleanups = run.cleanups.splice(0);
+
+    for (let index = cleanups.length - 1; index >= 0; index -= 1) {
+      const cleanup = cleanups[index];
+      if (cleanup) runCleanup(cleanup);
+    }
+  }
+
+  function cancelRun(run: ActiveStreamRun, reason?: unknown) {
+    if (!closeRun(run, true)) return false;
+
+    run.controller.abort(reason);
+    drainCleanups(run);
+    return true;
+  }
+
+  function failRun(run: ActiveStreamRun, error: E) {
+    if (!closeRun(run, false)) return false;
+
+    batch(() => {
+      errorSig.set(error);
+
+      applyInterruptionPolicy(
+        onError,
+        stableValueSig.get(),
+        initialValue,
+        (value) => valueSig.set(value),
+      );
+
+      statusSig.set("error");
+    });
+
+    drainCleanups(run);
+    onErrorEffect?.(error);
+    return true;
+  }
+
+  function supersedeActiveRun(reason?: unknown) {
+    const run = activeRun;
+    if (run) cancelRun(run, reason);
+  }
+
+  function cancelActiveResourceRun(reason?: unknown) {
+    const run = activeRun;
+    if (!run || !cancelRun(run, reason)) return;
 
     batch(() => {
       applyInterruptionPolicy(
@@ -129,21 +186,41 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
     });
   }
 
+  function manualCancel(reason?: unknown) {
+    cancelActiveResourceRun(reason);
+  }
+
+  function disposeResource() {
+    if (disposed) return;
+
+    disposed = true;
+    stopObservation?.();
+    cancelActiveResourceRun("dispose");
+  }
+
+  function manualReload() {
+    if (disposed) return;
+    replaceRun(readInput(), "reload");
+  }
+
   function readInput() {
     return input ? input() : (undefined as I);
   }
 
   function run(sourceValue: I) {
-    version += 1;
-    const runVersion = version;
-    activeVersion = runVersion;
-    cancelled = false;
+    const currentRun: ActiveStreamRun = {
+      controller: new AbortController(),
+      cleanups: [],
+      closed: false,
+      cancelled: false,
+    };
+    activeRun = currentRun;
 
     resetForNewRun();
 
-    const ctx: StreamContext<TChunk, TValue> = {
+    const ctx: StreamContext<TChunk, TValue, E> = {
       emit(chunk) {
-        if (cancelled || runVersion !== activeVersion) return;
+        if (!isActiveRun(currentRun)) return;
 
         batch(() => {
           const nextValue = reduce
@@ -159,7 +236,7 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
       },
 
       set(nextValue) {
-        if (cancelled || runVersion !== activeVersion) return;
+        if (!isActiveRun(currentRun)) return;
 
         batch(() => {
           valueSig.set(nextValue);
@@ -171,7 +248,7 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
       },
 
       done(finalValue) {
-        if (cancelled || runVersion !== activeVersion) return;
+        if (!closeRun(currentRun, false)) return;
 
         batch(() => {
           if (finalValue !== undefined) {
@@ -183,54 +260,63 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
           statusSig.set("success");
         });
 
+        drainCleanups(currentRun);
+
         const committed = valueSig.get();
         if (committed !== undefined) {
           onSuccess?.(committed);
         }
       },
 
+      fail(error) {
+        failRun(currentRun, error);
+      },
+
+      signal: currentRun.controller.signal,
+
+      onCleanup(cleanup) {
+        if (currentRun.closed) {
+          runCleanup(cleanup);
+          return;
+        }
+
+        currentRun.cleanups.push(cleanup);
+      },
+
       isCancelled() {
-        return cancelled || runVersion !== activeVersion;
+        return currentRun.cancelled;
       },
     };
 
+    // Let queued graph invalidations close superseded runs before producers start.
     Promise.resolve()
-      .then(() => stream(sourceValue, ctx))
+      .then(() => undefined)
+      .then(() => {
+        if (!isActiveRun(currentRun)) return;
+        return stream(sourceValue, ctx);
+      })
       .catch((err: E) => {
-        if (cancelled || runVersion !== activeVersion) return;
-
-        batch(() => {
-          errorSig.set(err);
-
-          applyInterruptionPolicy(
-            onError,
-            stableValueSig.get(),
-            initialValue,
-            (v) => valueSig.set(v),
-          );
-
-          statusSig.set("error");
-        });
-
-        onErrorEffect?.(err);
+        failRun(currentRun, err);
       });
   }
 
-  createEffect(() => {
+  function replaceRun(sourceValue: I, reason: unknown) {
+    supersedeActiveRun(reason);
+    run(sourceValue);
+  }
+
+  stopObservation = createEffect(() => {
     const nextSource = readInput();
     observe?.();
-    invalidateActiveRun();
-    run(nextSource);
+    replaceRun(nextSource, "source-changed");
   });
 
   const meta: StreamAsyncMeta<E, TValue> = {
     status: statusSig.get,
     error: errorSig.get,
-    reload: () => {
-      invalidateActiveRun();
-      run(readInput());
-    },
+    reload: manualReload,
     cancel: manualCancel,
+    dispose: disposeResource,
     stableValue: stableValueSig.get,
   };
 
@@ -242,7 +328,7 @@ function createDescriptorFromPositional<I, TChunk, TValue, E>(
   streamer:
     | ((
         sourceValue: I,
-        ctx: StreamContext<TChunk, TValue>,
+        ctx: StreamContext<TChunk, TValue, E>,
       ) => Promise<void> | void)
     | undefined,
   options: StreamResourceOptions<TChunk, TValue, E>,

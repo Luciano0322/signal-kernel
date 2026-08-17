@@ -98,6 +98,8 @@ export function useUserView() {
 
 Resource helpers consume resource tuples created by `@signal-kernel/async-runtime`. They observe value and metadata getters so metadata-only transitions update Vue refs. They do not add caching, retry, cancellation, or Suspense policy.
 
+Stopping a consumer scope only removes the Vue subscriptions created by the adapter. It does not call `resource.meta.cancel()` or `resource.meta.dispose()`, because the resource may be shared by other consumers. Application code may explicitly connect `resource.meta.dispose()` to a scope that truly owns the resource.
+
 When a manual resource exposes runnable metadata, `useResource()` preserves that metadata type on `resource.meta`, so `resource.meta.run(input)` remains available after passing through the Vue adapter.
 
 ## Boundary

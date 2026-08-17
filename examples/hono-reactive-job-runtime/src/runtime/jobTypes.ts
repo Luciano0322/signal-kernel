@@ -31,7 +31,8 @@ export type JobExecutionChunk = Partial<JobExecutionState>;
 
 export type JobStreamContext = StreamContext<
   JobExecutionChunk,
-  JobExecutionState
+  JobExecutionState,
+  Error
 >;
 
 export type JobAnalyzeStream = (

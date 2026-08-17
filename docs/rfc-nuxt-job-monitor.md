@@ -210,13 +210,33 @@ POST /api/jobs/:id/cancel
 GET /api/jobs/events
 ```
 
-`GET /api/jobs/events` should emit Server-Sent Events. The client transport should convert those HTTP events back into `JobEvent` objects:
+`GET /api/jobs/events` should emit Server-Sent Events. The client transport should convert those HTTP events back into `JobEvent` objects. On the kernel-owned path, `createStreamResource()` owns the subscription run:
 
 ```ts
-subscribeJobEvents((event) => {
-  kernel.actions.dispatch(event)
+const jobEventsResource = createStreamResource({
+  input: eventStreamEnabled.get,
+  stream: (enabled, ctx) => {
+    if (!enabled) {
+      ctx.done(null)
+      return
+    }
+
+    const unsubscribe = transport.subscribeJobEvents(event => {
+      if (ctx.isCancelled()) return
+      ctx.emit(event)
+      dispatchJobEvent(event)
+    })
+
+    ctx.onCleanup(unsubscribe)
+  },
+  initialValue: null,
+  reduce: (_current, event) => event,
 })
 ```
+
+The Vue-owned comparison path should continue subscribing in Vue lifecycle hooks. This keeps the comparison focused on ownership rather than using different transports.
+
+EventSource may report `onerror` while it is automatically reconnecting. That callback should update graph-owned transport status and error state, but it should not call terminal `ctx.fail()` unless the transport contract identifies an unrecoverable failure.
 
 The server-side mock store may still use `setInterval` internally to simulate progress updates, status transitions, and log events. The important boundary is that the browser talks to Nuxt through the transport interface instead of owning the mock state directly.
 
@@ -739,6 +759,7 @@ export function createJobKernel(options: {
 
     resources: {
       jobsResource,
+      jobEventsResource,
     },
 
     computed: {
@@ -1301,6 +1322,7 @@ Vue components receive readonly refs through @signal-kernel/vue
 server-side mock store emits job_progressed
 Nuxt SSE route writes data: JobEvent
 createNuxtJobTransport parses EventSource message
+jobEventsResource accepts the pushed event for the active run
 kernel.applyJobEvent(event)
 jobs signal is updated
 filteredJobs recomputes

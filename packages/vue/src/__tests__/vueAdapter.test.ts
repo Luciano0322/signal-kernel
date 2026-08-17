@@ -205,18 +205,20 @@ describe("@signal-kernel/vue", () => {
     expect(run).toHaveBeenCalledWith(1);
   });
 
-  it("exposes stream resource value and metadata refs without defining stream policy", async () => {
+  it("exposes stream resource metadata without owning its lifecycle", async () => {
     const value = signal<string | undefined>("draft");
     const status = signal<StreamAsyncStatus>("streaming");
     const error = signal<Error | undefined>(undefined);
     const stableValue = signal<string | undefined>("committed");
     const cancel = vi.fn();
+    const dispose = vi.fn();
 
     const meta: StreamAsyncMeta<Error, string> = {
       status: status.get,
       error: error.get,
       reload: vi.fn(),
       cancel,
+      dispose,
       stableValue: stableValue.get,
     };
 
@@ -229,6 +231,7 @@ describe("@signal-kernel/vue", () => {
     expect(resource.error.value).toBeUndefined();
     expect(resource.stableValue.value).toBe("committed");
     expect(resource.meta).toBe(meta);
+    expect(resource.meta.dispose).toBe(dispose);
 
     status.set("success");
     value.set("final-draft");
@@ -248,5 +251,9 @@ describe("@signal-kernel/vue", () => {
     stop();
 
     expect(cancel).not.toHaveBeenCalled();
+    expect(dispose).not.toHaveBeenCalled();
+
+    resource.meta.dispose();
+    expect(dispose).toHaveBeenCalledOnce();
   });
 });
