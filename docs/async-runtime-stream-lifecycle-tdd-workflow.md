@@ -157,7 +157,7 @@ checked.
 - [x] Phase 4: Push producers can fail explicitly
 - [x] Phase 5: Dispose permanently stops the resource
 - [x] Phase 6: Adapter ownership audit
-- [ ] Phase 7: Push transport proof
+- [x] Phase 7: Push transport proof
 - [ ] Phase 8: Refactor, documentation, and verification
 
 ## Phase 0: Baseline
@@ -949,27 +949,56 @@ a subscription source removes its old listener and rejects stale events after re
 
 ### Cycle 7A: Framework-Neutral Subscription Proof
 
-- [ ] Build a small fake push transport inside the test file.
-- [ ] RED: Add one test proving a listener can emit after the producer function
+- [x] Build a small fake push transport inside the test file.
+- [x] RED: Add one test proving a listener can emit after the producer function
   returns.
-- [ ] GREEN: Make multiple pushed events update visible value through public
+- [x] GREEN: Make multiple pushed events update visible value through public
   APIs.
-- [ ] Run the focused and existing tests.
-- [ ] RED: Add one test changing source identity and asserting the old listener
+- [x] Run the focused and existing tests.
+- [x] RED: Add one test changing source identity and asserting the old listener
   is removed.
-- [ ] GREEN: Make source replacement unsubscribe exactly once.
-- [ ] Run the focused and existing tests.
-- [ ] RED: Add one test pushing an event through the retained old listener.
-- [ ] GREEN: Make the stale event leave active state unchanged.
-- [ ] Run the focused and existing tests.
-- [ ] RED: Add one test reporting an error through the push callback.
-- [ ] GREEN: Make callback failure use the terminal error contract.
-- [ ] Run the focused and existing tests.
-- [ ] RED: Add one test disposing the active subscription.
-- [ ] GREEN: Make disposal remove the active listener exactly once.
-- [ ] Run the focused and existing tests.
-- [ ] REFACTOR: Keep the fake transport local to tests and free of framework
+- [x] GREEN: Make source replacement unsubscribe exactly once.
+- [x] Run the focused and existing tests.
+- [x] RED: Add one test pushing an event through the retained old listener.
+- [x] GREEN: Make the stale event leave active state unchanged.
+- [x] Run the focused and existing tests.
+- [x] RED: Add one test reporting an error through the push callback.
+- [x] GREEN: Make callback failure use the terminal error contract.
+- [x] Run the focused and existing tests.
+- [x] RED: Add one test disposing the active subscription.
+- [x] GREEN: Make disposal remove the active listener exactly once.
+- [x] Run the focused and existing tests.
+- [x] REFACTOR: Keep the fake transport local to tests and free of framework
   assumptions.
+
+### Cycle 7A Completion Record
+
+```txt
+Date: 2026-08-17
+
+producer-return push characterization: passed directly GREEN
+source replacement characterization: passed directly GREEN
+retained stale listener characterization: passed directly GREEN
+push callback failure characterization: passed directly GREEN
+active subscription disposal characterization: passed directly GREEN
+async-runtime regression: passed, 5 files and 87 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* Five public behavior tests use a test-local callback subscription transport.
+* Producer return remains distinct from done(); pushed events continue to update
+  a pending or streaming run after setup returns.
+* Source replacement and disposal unsubscribe exactly once. A retained callback
+  from a closed run cannot mutate active state.
+* Callback errors use the same terminal error and cleanup contract as producer
+  failures.
+* All characterization tests passed directly GREEN because Phases 1-5 had
+  already established the required lifecycle behavior. No production runtime
+  change was needed in Cycle 7A.
+* The fake transport has no WebSocket, EventSource, DOM, or framework type
+  dependency.
+```
 
 After the runtime proof is green, evaluate migrating the existing Nuxt job
 monitor SSE ownership into `createStreamResource()`. That example is useful
@@ -977,21 +1006,63 @@ integration evidence, but it must not determine the runtime API.
 
 ### Cycle 7B: Existing SSE Example Evaluation
 
-- [ ] Document how the Nuxt job monitor currently owns EventSource
+- [x] Document how the Nuxt job monitor currently owns EventSource
   subscription and cleanup.
-- [ ] Decide whether migration proves the new public API without obscuring the
+- [x] Decide whether migration proves the new public API without obscuring the
   example's Vue-versus-kernel comparison.
-- [ ] When adopted, migrate one SSE ownership path at a time with focused tests.
-- [ ] When deferred, record the reason and keep the framework-neutral proof as
-  the release evidence.
+- [x] When adopted, migrate one SSE ownership path at a time with focused tests.
+- [x] The deferral branch is not applicable because the kernel-owned migration
+  was adopted.
 
 Exit condition:
 
-- [ ] At least one push-style integration test uses only public async-runtime
+- [x] At least one push-style integration test uses only public async-runtime
   APIs.
-- [ ] No WebSocket, EventSource, Vue, React, or DOM dependency is added to the
+- [x] No WebSocket, EventSource, Vue, React, or DOM dependency is added to the
   async-runtime package.
-- [ ] Producer return remains distinct from explicit stream completion.
+- [x] Producer return remains distinct from explicit stream completion.
+
+### Phase 7 Completion Record
+
+```txt
+Date: 2026-08-17
+
+Pre-migration ownership:
+* createNuxtJobTransport() constructed EventSource and returned unsubscribe.
+* createJobKernel() stored that unsubscribe in stopEvents and called it from
+  stop().
+* vue-owned.vue separately stored unsubscribe and released it from
+  onBeforeUnmount().
+
+Decision:
+* Adopt migration only for the kernel-owned path.
+* Keep the Vue-owned lifecycle path unchanged as the comparison baseline.
+* Keep EventSource construction, parsing, and reconnect notifications in the
+  transport rather than async-runtime.
+
+Migration evidence:
+* jobEventsResource owns the kernel subscription run through public
+  createStreamResource(), StreamContext, and StreamAsyncMeta APIs.
+* start() enables a restartable source; stop() synchronously cancels the active
+  run and then disables the source.
+* Pushed events update both the stream resource value and the job graph after
+  passing the active-run guard.
+* Retained callbacks cannot update the graph after stop().
+* EventSource-style reconnect errors remain transport notifications and do not
+  become terminal ctx.fail() transitions.
+* Snapshot registers the real jobEventsResource as inspect-only metadata and
+  does not claim live SSE restoration.
+
+Verification:
+* Nuxt focused RED confirmed jobEventsResource was absent before migration.
+* Synchronous stop RED confirmed signal-only disable delayed cleanup.
+* Inspect-only snapshot RED confirmed the old synthetic stream tuple remained.
+* Nuxt job monitor regression passed, 2 files and 14 tests.
+* Nuxt job monitor typecheck passed.
+* Nuxt job monitor production build passed.
+* Async-runtime regression passed, 5 files and 87 tests.
+* Async-runtime typecheck passed.
+```
 
 ## Phase 8: Refactor, Documentation, And Verification
 

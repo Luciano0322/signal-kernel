@@ -29,7 +29,7 @@ The transport interface is shared by both pages so the comparison stays focused 
 The kernel-owned page uses:
 
 - `@signal-kernel/core` for signals and computed values
-- `@signal-kernel/async-runtime` for resources, manual mutation resources, and invalidation revisions
+- `@signal-kernel/async-runtime` for query resources, manual mutation resources, invalidation revisions, and the SSE subscription lifecycle
 - `@signal-kernel/vue` to expose graph values to Vue as readonly refs
 - graph-owned view models for `canRetry`, `canCancel`, SLA flags, queue health, stream status, and last event time
 
@@ -46,7 +46,9 @@ This example is not a claim that Vue reactivity is insufficient. It demonstrates
 
 The retry action applies an optimistic `job_retrying` event before the server confirms the action. The cancel action applies a local confirmation after the server call succeeds. Server-Sent Events may still deliver the same status transition afterward; the graph reducer keeps these job status events idempotent.
 
-The stream connection status is part of the graph on the kernel-owned page. Nuxt owns the HTTP/SSE route, `createNuxtJobTransport()` owns the browser transport, and `createJobKernel()` owns how events affect business state.
+The stream connection status is part of the graph on the kernel-owned page. Nuxt owns the HTTP/SSE route, `createNuxtJobTransport()` owns the browser `EventSource`, and `jobEventsResource` owns the active subscription run, cleanup, and stale-callback boundary. `createJobKernel()` applies events accepted by that run to business state.
+
+The Vue-owned page deliberately keeps direct `onMounted()` / `onBeforeUnmount()` subscription ownership. This preserves the comparison: both pages share the same transport, while only the kernel-owned path can keep its stream lifecycle outside Vue. EventSource `onerror` is treated as a reconnecting transport notification rather than an automatic terminal resource failure.
 
 ## Snapshot Handoff
 
@@ -56,4 +58,4 @@ The kernel-owned page also exposes a small snapshot handoff panel:
 - `Reset` clears writable graph state and closes the current event stream.
 - `Restore` restores writable signals into the same compatible graph and starts the SSE connection again.
 
-The snapshot scope intentionally restores only writable signals such as jobs, logs, selected job, filter, and last event time. Computed values are captured for inspection but recompute after restore. Resource and stream nodes are captured as inspect-only metadata; the snapshot does not serialize `EventSource`, promises, timers, abort controllers, or any live async work.
+The snapshot scope intentionally restores only writable signals such as jobs, logs, selected job, filter, and last event time. Computed values are captured for inspection but recompute after restore. The actual `jobEventsResource` is captured as inspect-only metadata; the snapshot does not serialize `EventSource`, promises, timers, abort controllers, or any live async work.

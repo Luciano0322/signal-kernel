@@ -10,6 +10,69 @@ import {
   setupMultiSourceStream,
 } from "./helper";
 
+interface FakePushListener<TValue, TError> {
+  next(value: TValue): void;
+  error(error: TError): void;
+}
+
+function createFakePushTransport<TValue, TError = Error>() {
+  const activeListeners = new Map<
+    string,
+    Set<FakePushListener<TValue, TError>>
+  >();
+  const retainedListeners = new Map<
+    string,
+    FakePushListener<TValue, TError>[]
+  >();
+  const unsubscribeCounts = new Map<string, number>();
+
+  return {
+    subscribe(
+      source: string,
+      listener: FakePushListener<TValue, TError>,
+    ): () => void {
+      const listeners = activeListeners.get(source) ?? new Set();
+      listeners.add(listener);
+      activeListeners.set(source, listeners);
+
+      const retained = retainedListeners.get(source) ?? [];
+      retained.push(listener);
+      retainedListeners.set(source, retained);
+
+      let subscribed = true;
+
+      return () => {
+        if (!subscribed) return;
+        subscribed = false;
+        listeners.delete(listener);
+        unsubscribeCounts.set(source, (unsubscribeCounts.get(source) ?? 0) + 1);
+      };
+    },
+    emit(source: string, value: TValue): void {
+      for (const listener of activeListeners.get(source) ?? []) {
+        listener.next(value);
+      }
+    },
+    fail(source: string, error: TError): void {
+      for (const listener of activeListeners.get(source) ?? []) {
+        listener.error(error);
+      }
+    },
+    listenerCount(source: string): number {
+      return activeListeners.get(source)?.size ?? 0;
+    },
+    unsubscribeCount(source: string): number {
+      return unsubscribeCounts.get(source) ?? 0;
+    },
+    retainedListener(
+      source: string,
+      index: number,
+    ): FakePushListener<TValue, TError> | undefined {
+      return retainedListeners.get(source)?.[index];
+    },
+  };
+}
+
 describe("createStreamResource", () => {
   it("starts in pending state with initial visible and stable values", () => {
     const { value, meta } = setupBasicStream({ initialValue: "" });
@@ -1088,5 +1151,173 @@ describe("createStreamResource", () => {
     expect(meta.status()).toBe("success");
     expect(value()).toBe("chunk");
     expect(meta.stableValue()).toBe("chunk");
+  });
+
+  it("accepts pushed events after the producer function returns", async () => {
+    const transport = createFakePushTransport<string>();
+
+    const [value, meta] = createStreamResource({
+      input: () => "room-a",
+      stream: (room, ctx) => {
+        const unsubscribe = transport.subscribe(room, {
+          next: ctx.emit,
+          error: ctx.fail,
+        });
+        ctx.onCleanup(unsubscribe);
+      },
+      initialValue: "",
+      reduce: (current = "", chunk: string) => current + chunk,
+    });
+
+    await flushMicrotasks();
+
+    expect(transport.listenerCount("room-a")).toBe(1);
+    expect(meta.status()).toBe("pending");
+
+    transport.emit("room-a", "Hello");
+    transport.emit("room-a", " world");
+
+    expect(meta.status()).toBe("streaming");
+    expect(value()).toBe("Hello world");
+
+    meta.dispose();
+  });
+
+  it("replaces a push subscription when the source identity changes", async () => {
+    const room = signal("room-a");
+    const transport = createFakePushTransport<string>();
+
+    const [, meta] = createStreamResource({
+      input: room.get,
+      stream: (currentRoom, ctx) => {
+        const unsubscribe = transport.subscribe(currentRoom, {
+          next: ctx.emit,
+          error: ctx.fail,
+        });
+        ctx.onCleanup(unsubscribe);
+      },
+      initialValue: "",
+    });
+
+    await flushMicrotasks();
+    expect(transport.listenerCount("room-a")).toBe(1);
+
+    room.set("room-b");
+    await flushMicrotasks();
+
+    expect(transport.listenerCount("room-a")).toBe(0);
+    expect(transport.unsubscribeCount("room-a")).toBe(1);
+    expect(transport.listenerCount("room-b")).toBe(1);
+
+    meta.dispose();
+  });
+
+  it("ignores events pushed through a retained stale listener", async () => {
+    const room = signal("room-a");
+    const transport = createFakePushTransport<string>();
+
+    const [value, meta] = createStreamResource({
+      input: room.get,
+      stream: (currentRoom, ctx) => {
+        const unsubscribe = transport.subscribe(currentRoom, {
+          next: ctx.emit,
+          error: ctx.fail,
+        });
+        ctx.onCleanup(unsubscribe);
+      },
+      initialValue: "",
+      reduce: (current = "", chunk: string) => current + chunk,
+    });
+
+    await flushMicrotasks();
+    const staleListener = transport.retainedListener("room-a", 0);
+    if (!staleListener) throw new Error("old push listener was not retained");
+
+    room.set("room-b");
+    await flushMicrotasks();
+    transport.emit("room-b", "active");
+
+    staleListener.next("stale");
+
+    expect(value()).toBe("active");
+    expect(meta.status()).toBe("streaming");
+
+    meta.dispose();
+  });
+
+  it("uses the terminal error contract for push callback failures", async () => {
+    const failure = new Error("push transport failed");
+    const transport = createFakePushTransport<string, Error>();
+
+    const [value, meta] = createStreamResource<string, string, string, Error>({
+      input: () => "room-a",
+      stream: (room, ctx) => {
+        const unsubscribe = transport.subscribe(room, {
+          next: ctx.emit,
+          error: ctx.fail,
+        });
+        ctx.onCleanup(unsubscribe);
+      },
+      initialValue: "stable",
+      reduce: (current = "", chunk) => current + chunk,
+      onError: "rollback",
+    });
+
+    await flushMicrotasks();
+    const retainedListener = transport.retainedListener("room-a", 0);
+    if (!retainedListener) throw new Error("push listener was not retained");
+
+    transport.emit("room-a", "partial");
+    transport.fail("room-a", failure);
+
+    expect(meta.status()).toBe("error");
+    expect(meta.error()).toBe(failure);
+    expect(value()).toBe("stable");
+    expect(meta.stableValue()).toBe("stable");
+    expect(transport.listenerCount("room-a")).toBe(0);
+    expect(transport.unsubscribeCount("room-a")).toBe(1);
+
+    retainedListener.next("late");
+    expect(value()).toBe("stable");
+
+    meta.dispose();
+    expect(transport.unsubscribeCount("room-a")).toBe(1);
+  });
+
+  it("disposes an active push subscription exactly once", async () => {
+    const room = signal("room-a");
+    const transport = createFakePushTransport<string>();
+
+    const [value, meta] = createStreamResource({
+      input: room.get,
+      stream: (currentRoom, ctx) => {
+        const unsubscribe = transport.subscribe(currentRoom, {
+          next: ctx.emit,
+          error: ctx.fail,
+        });
+        ctx.onCleanup(unsubscribe);
+      },
+      initialValue: "stable",
+      reduce: (current = "", chunk: string) => current + chunk,
+    });
+
+    await flushMicrotasks();
+    const retainedListener = transport.retainedListener("room-a", 0);
+    if (!retainedListener) throw new Error("push listener was not retained");
+
+    meta.dispose();
+    meta.dispose();
+
+    expect(meta.status()).toBe("cancelled");
+    expect(transport.listenerCount("room-a")).toBe(0);
+    expect(transport.unsubscribeCount("room-a")).toBe(1);
+
+    retainedListener.next("late");
+    room.set("room-b");
+    await flushMicrotasks();
+
+    expect(value()).toBe("stable");
+    expect(transport.listenerCount("room-b")).toBe(0);
+    expect(transport.unsubscribeCount("room-a")).toBe(1);
   });
 });

@@ -22,24 +22,10 @@ export function createJobKernelSnapshotScope(kernel: JobKernel) {
     sourceKey: { method: "GET", path: "/api/jobs" },
   });
 
-  scope.stream(
-    "jobEvents",
-    [
-      () => ({
-        connectionStatus: kernel.state.eventStreamStatus.peek(),
-        lastEventAt: kernel.state.lastEventAt.peek(),
-      }),
-      {
-        error: kernel.state.streamError.peek,
-        stableValue: () => undefined,
-        status: kernel.state.eventStreamStatus.get,
-      },
-    ],
-    {
-      restore: "inspect-only",
-      sourceKey: { method: "GET", path: "/api/jobs/events", transport: "sse" },
-    },
-  );
+  scope.stream("jobEvents", kernel.resources.jobEventsResource, {
+    restore: "inspect-only",
+    sourceKey: { method: "GET", path: "/api/jobs/events", transport: "sse" },
+  });
 
   return scope;
 }
