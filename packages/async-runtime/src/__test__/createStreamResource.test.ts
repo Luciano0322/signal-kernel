@@ -375,6 +375,142 @@ describe("createStreamResource", () => {
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
+  it("disposes an active stream and prevents every later restart", async () => {
+    const source = signal("a");
+    const cleanup = vi.fn();
+    let producerSignal: AbortSignal | undefined;
+
+    const stream = vi.fn(
+      (input: string, ctx: StreamContext<string, string>) => {
+        producerSignal = ctx.signal;
+        ctx.onCleanup(cleanup);
+      },
+    );
+
+    const [, meta] = createStreamResource<string, string, string>({
+      input: source.get,
+      stream,
+      initialValue: "",
+    });
+
+    await flushMicrotasks();
+
+    expect(stream).toHaveBeenCalledOnce();
+    expect(stream).toHaveBeenCalledWith("a", expect.any(Object));
+    expect(producerSignal?.aborted).toBe(false);
+
+    meta.dispose();
+
+    expect(producerSignal?.aborted).toBe(true);
+    expect(cleanup).toHaveBeenCalledOnce();
+
+    source.set("b");
+    await flushMicrotasks();
+    meta.reload();
+    await flushMicrotasks();
+
+    expect(stream).toHaveBeenCalledOnce();
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("does not start a deferred producer after synchronous disposal", async () => {
+    const input = vi.fn(() => "a");
+    const stream = vi.fn(
+      (_input: string, _ctx: StreamContext<string, string>) => undefined,
+    );
+
+    const [, meta] = createStreamResource<string, string, string>({
+      input,
+      stream,
+    });
+
+    meta.dispose();
+    expect(meta.status()).toBe("cancelled");
+    expect(input).toHaveBeenCalledOnce();
+
+    await flushMicrotasks();
+    meta.reload();
+    await flushMicrotasks();
+
+    expect(stream).not.toHaveBeenCalled();
+    expect(input).toHaveBeenCalledOnce();
+  });
+
+  it("treats repeated disposal as a no-op", async () => {
+    const cleanup = vi.fn();
+    let producerSignal: AbortSignal | undefined;
+
+    const stream = vi.fn(
+      (_input: undefined, ctx: StreamContext<string, string>) => {
+        producerSignal = ctx.signal;
+        ctx.onCleanup(cleanup);
+      },
+    );
+
+    const [, meta] = createStreamResource({ stream });
+    await flushMicrotasks();
+
+    meta.dispose();
+    meta.dispose();
+
+    expect(producerSignal?.aborted).toBe(true);
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(stream).toHaveBeenCalledOnce();
+  });
+
+  it("preserves a completed resource when disposed", async () => {
+    const cleanup = vi.fn();
+    let retainedCtx: StreamContext<string, string> | undefined;
+
+    const [value, meta] = createStreamResource<string, string>({
+      stream: (_input, ctx) => {
+        retainedCtx = ctx;
+        ctx.onCleanup(cleanup);
+      },
+      initialValue: "initial",
+    });
+
+    await flushMicrotasks();
+    if (!retainedCtx) throw new Error("stream context was not captured");
+
+    retainedCtx.done("committed");
+    expect(cleanup).toHaveBeenCalledOnce();
+
+    meta.dispose();
+
+    expect(value()).toBe("committed");
+    expect(meta.stableValue()).toBe("committed");
+    expect(meta.status()).toBe("success");
+    expect(meta.error()).toBeUndefined();
+    expect(retainedCtx.signal.aborted).toBe(false);
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("applies cancellation policy when disposing an active resource", async () => {
+    let retainedCtx: StreamContext<string, string> | undefined;
+
+    const [value, meta] = createStreamResource<string, string>({
+      stream: (_input, ctx) => {
+        retainedCtx = ctx;
+        ctx.emit("partial");
+      },
+      initialValue: "stable",
+      reduce: (current = "", chunk) => current + chunk,
+      onCancel: "keep-partial",
+    });
+
+    await flushMicrotasks();
+    if (!retainedCtx) throw new Error("stream context was not captured");
+
+    meta.dispose();
+
+    expect(retainedCtx.signal.aborted).toBe(true);
+    expect(meta.status()).toBe("cancelled");
+    expect(meta.error()).toBeUndefined();
+    expect(value()).toBe("stablepartial");
+    expect(meta.stableValue()).toBe("stable");
+  });
+
   it("does not start a deferred producer after synchronous cancellation", async () => {
     const stream = vi.fn(
       (_input: undefined, _ctx: StreamContext<string, string>) => undefined,

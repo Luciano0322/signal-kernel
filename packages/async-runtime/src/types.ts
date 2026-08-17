@@ -33,6 +33,7 @@ export interface StreamAsyncMeta<E, TValue> {
   error: () => E | undefined;
   reload: () => void;
   cancel: (reason?: unknown) => void;
+  dispose: () => void;
   stableValue: () => TValue | undefined;
 }
 

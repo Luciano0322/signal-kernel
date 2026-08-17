@@ -155,7 +155,7 @@ checked.
 - [x] Phase 2: Supersession and reload close the previous run
 - [x] Phase 3: Completion is terminal
 - [x] Phase 4: Push producers can fail explicitly
-- [ ] Phase 5: Dispose permanently stops the resource
+- [x] Phase 5: Dispose permanently stops the resource
 - [ ] Phase 6: Adapter ownership audit
 - [ ] Phase 7: Push transport proof
 - [ ] Phase 8: Refactor, documentation, and verification
@@ -752,41 +752,125 @@ dispose closes the active run and prevents future input changes from restarting 
 
 ### Cycle 5A: Active Disposal
 
-- [ ] RED: Add one test that disposes an active stream.
-- [ ] RED: Assert its signal aborts and cleanup runs exactly once.
-- [ ] RED: Change tracked input and call `reload()` after disposal.
-- [ ] RED: Assert no later producer session starts.
-- [ ] RED: Run the focused test and confirm the expected failure.
-- [ ] GREEN: Add `dispose()` to `StreamAsyncMeta`.
-- [ ] GREEN: Retain and invoke the disposer returned by internal
+- [x] RED: Add one test that disposes an active stream.
+- [x] RED: Assert its signal aborts and cleanup runs exactly once.
+- [x] RED: Change tracked input and call `reload()` after disposal.
+- [x] RED: Assert no later producer session starts.
+- [x] RED: Run the focused test and confirm the expected failure.
+- [x] GREEN: Add `dispose()` to `StreamAsyncMeta`.
+- [x] GREEN: Retain and invoke the disposer returned by internal
   `createEffect()`.
-- [ ] GREEN: Guard input observation and manual reload after disposal.
-- [ ] GREEN: Make the focused and existing tests pass.
+- [x] GREEN: Guard input observation and manual reload after disposal.
+- [x] GREEN: Make the focused and existing tests pass.
+
+#### Cycle 5A Completion Record
+
+```txt
+Date: 2026-08-13
+
+RED: failed as expected with "meta.dispose is not a function"
+GREEN: focused test passed, 1 test passed and 32 skipped
+stream regression: passed, 1 file and 33 tests
+async-runtime regression: passed, 5 files and 78 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* StreamAsyncMeta now exposes dispose().
+* Disposal marks the resource permanently disposed, stops the internal
+  createEffect(), and tears down the active run through cancellation cleanup.
+* Active disposal aborts the producer signal and drains each cleanup
+  registration once.
+* Both reactive input invalidation and manual reload are guarded after
+  disposal, so neither path can start another producer session.
+* Idempotency and terminal-state policy remain scoped to Cycle 5B tests.
+```
 
 ### Cycle 5B: Disposal Idempotency And Terminal State
 
-- [ ] RED: Add one test proving repeated `dispose()` is a no-op.
-- [ ] GREEN: Make repeated disposal idempotent.
-- [ ] RED: Add one test disposing an already completed resource.
-- [ ] RED: Assert committed value, stable value, and terminal state are retained.
-- [ ] GREEN: Preserve terminal state when no active run exists.
-- [ ] RED: Add or tighten a test that active disposal applies cancel policy and
+- [x] RED: Add one test proving repeated `dispose()` is a no-op.
+- [x] GREEN: Make repeated disposal idempotent.
+- [x] RED: Add one test disposing an already completed resource.
+- [x] RED: Assert committed value, stable value, and terminal state are retained.
+- [x] GREEN: Preserve terminal state when no active run exists.
+- [x] RED: Add or tighten a test that active disposal applies cancel policy and
   enters `cancelled`.
-- [ ] GREEN: Make active disposal follow the documented policy.
-- [ ] Run the focused and existing tests after each cycle.
+- [x] GREEN: Make active disposal follow the documented policy.
+- [x] Run the focused and existing tests after each cycle.
+
+#### Cycle 5B Completion Record
+
+```txt
+Date: 2026-08-13
+
+repeated disposal characterization: passed directly GREEN,
+                                   1 test passed and 33 skipped
+stream regression after idempotency: passed, 1 file and 34 tests
+completed disposal characterization: passed directly GREEN,
+                                    1 test passed and 34 skipped
+stream regression after terminal preservation: passed, 1 file and 35 tests
+active policy characterization: passed directly GREEN,
+                                1 test passed and 35 skipped
+combined focused verification: passed, 3 tests passed and 33 skipped
+stream regression: passed, 1 file and 36 tests
+async-runtime regression: passed, 5 files and 81 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* All three tests passed without production changes because Cycle 5A already
+  separated permanent resource disposal from active-run cancellation.
+* Repeated dispose() calls do not abort, clean up, or transition state again.
+* Disposing after done() preserves visible value, stable value, success status,
+  and the completed signal state while still stopping reactive observation.
+* Disposing an active run aborts it, applies the configured onCancel policy,
+  and enters cancelled; keep-partial coverage proves disposal is more than an
+  AbortSignal operation.
+```
 
 REFACTOR tasks:
 
-- [ ] Keep `cancel()` and `dispose()` paths explicit: cancellation is temporary,
+- [x] Keep `cancel()` and `dispose()` paths explicit: cancellation is temporary,
   disposal is permanent.
-- [ ] Remove lifecycle branches made obsolete by the disposer.
-- [ ] Run async-runtime test, typecheck, and build after refactoring.
+- [x] Remove lifecycle branches made obsolete by the disposer.
+- [x] Run async-runtime test, typecheck, and build after refactoring.
 
 Exit condition:
 
-- [ ] The disposed resource has no remaining reactive observation.
-- [ ] The disposed resource has no active producer or pending deferred start.
-- [ ] Public declarations include `dispose()` correctly.
+- [x] The disposed resource has no remaining reactive observation.
+- [x] The disposed resource has no active producer or pending deferred start.
+- [x] Public declarations include `dispose()` correctly.
+
+### Phase 5 Completion Record
+
+```txt
+Date: 2026-08-13
+
+deferred disposal characterization: passed directly GREEN,
+                                   1 test passed and 36 skipped
+tightened reload-input assertion RED: failed as expected because disposed
+                                     reload read input a second time
+tightened assertion GREEN: passed, 1 test passed and 36 skipped
+Phase 5 focused verification: passed, 5 tests passed and 32 skipped
+stream regression: passed, 1 file and 37 tests
+async-runtime regression: passed, 5 files and 82 tests
+async-runtime typecheck: passed
+async-runtime build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* Synchronous disposal closes the pending run before deferred producer
+  invocation, so no producer setup begins after ownership ends.
+* Disposed reload now returns before evaluating input, making it a complete
+  no-op rather than only blocking producer replacement.
+* cancel() and dispose() remain distinct public paths. They share only the
+  active-run cancellation transition; dispose() additionally marks permanent
+  ownership termination and stops reactive observation.
+* The createEffect disposer makes callback-level disposed guards unnecessary;
+  manual reload retains its own outer guard because it is an independent entry.
+* Input invalidation, reload, active teardown, deferred start, idempotency,
+  terminal-state preservation, and generated dispose() declarations all have
+  direct verification.
+```
 
 ## Phase 6: Adapter Ownership Audit
 

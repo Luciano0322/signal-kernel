@@ -96,6 +96,8 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
   const errorSig = signal<E | undefined>(undefined);
 
   let activeRun: ActiveStreamRun | null = null;
+  let disposed = false;
+  let stopObservation: (() => void) | undefined;
 
   function resetForNewRun() {
     batch(() => {
@@ -169,7 +171,7 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
     if (run) cancelRun(run, reason);
   }
 
-  function manualCancel(reason?: unknown) {
+  function cancelActiveResourceRun(reason?: unknown) {
     const status = statusSig.get();
     if (
       status === "idle" ||
@@ -192,6 +194,23 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
       );
       statusSig.set("cancelled");
     });
+  }
+
+  function manualCancel(reason?: unknown) {
+    cancelActiveResourceRun(reason);
+  }
+
+  function disposeResource() {
+    if (disposed) return;
+
+    disposed = true;
+    stopObservation?.();
+    cancelActiveResourceRun("dispose");
+  }
+
+  function manualReload() {
+    if (disposed) return;
+    replaceRun(readInput(), "reload");
   }
 
   function readInput() {
@@ -296,7 +315,7 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
     run(sourceValue);
   }
 
-  createEffect(() => {
+  stopObservation = createEffect(() => {
     const nextSource = readInput();
     observe?.();
     replaceRun(nextSource, "source-changed");
@@ -305,10 +324,9 @@ export function createStreamResource<I, TChunk, TValue, E = unknown>(
   const meta: StreamAsyncMeta<E, TValue> = {
     status: statusSig.get,
     error: errorSig.get,
-    reload: () => {
-      replaceRun(readInput(), "reload");
-    },
+    reload: manualReload,
     cancel: manualCancel,
+    dispose: disposeResource,
     stableValue: stableValueSig.get,
   };
 
