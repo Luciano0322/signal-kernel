@@ -275,6 +275,8 @@ Implementation requirements:
 * Observe `meta.status()`.
 * Observe `meta.error()`.
 * Preserve `reload()` and `cancel()` as runtime pass-throughs.
+* Preserve the original `meta`, including `meta.dispose()`.
+* Do not call `meta.dispose()` automatically on Vue scope disposal.
 * Do not define stream interruption policy in the adapter.
 
 ---
@@ -401,6 +403,7 @@ Do not change resource hooks in the same first cycle.
 * `error()` changes update `error`.
 * Metadata-only transitions update Vue refs.
 * Vue scope disposal does not call `meta.cancel()`.
+* Vue scope disposal does not call `meta.dispose()`.
 
 ---
 

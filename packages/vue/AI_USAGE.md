@@ -26,4 +26,6 @@ This package is a framework adapter. It is not the owner of graph semantics, asy
 
 Core owns the graph. Async runtime owns async correctness. Vue owns rendering. This adapter only connects Vue scopes to existing graph nodes.
 
+Vue scope disposal stops adapter-created subscriptions; it must not automatically call `meta.cancel()` or `meta.dispose()` on an externally supplied resource. Preserve the original metadata object and let application code explicitly dispose only from a scope that owns the resource.
+
 Prefer `useKernelValue()` in new examples because it describes the actual adapter boundary: Vue is reading a value owned by the signal-kernel graph. `useSignalValue()` and `useComputedValue()` are compatibility aliases over the same readable bridge, not separate graph semantics.

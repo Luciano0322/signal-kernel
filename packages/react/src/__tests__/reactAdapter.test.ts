@@ -317,18 +317,20 @@ describe("@signal-kernel/react", () => {
     expect(run).toHaveBeenCalledWith(1);
   });
 
-  it("re-renders stream resource consumers for stream metadata changes", async () => {
+  it("observes stream metadata without owning the resource lifecycle", async () => {
     const value = signal<string | undefined>("draft");
     const status = signal<StreamAsyncStatus>("streaming");
     const error = signal<Error | undefined>(undefined);
     const stableValue = signal<string | undefined>("committed");
     const cancel = vi.fn();
+    const dispose = vi.fn();
 
     const meta: StreamAsyncMeta<Error, string> = {
       status: status.get,
       error: error.get,
       reload: vi.fn(),
       cancel,
+      dispose,
       stableValue: stableValue.get,
     };
 
@@ -336,6 +338,7 @@ describe("@signal-kernel/react", () => {
 
     expect(current).toBe("draft");
     expect(returnedMeta).toBe(meta);
+    expect(returnedMeta.dispose).toBe(dispose);
 
     const store = latestStore();
     status.set("success");
@@ -363,5 +366,9 @@ describe("@signal-kernel/react", () => {
     reactHarness.cleanup();
 
     expect(cancel).not.toHaveBeenCalled();
+    expect(dispose).not.toHaveBeenCalled();
+
+    returnedMeta.dispose();
+    expect(dispose).toHaveBeenCalledOnce();
   });
 });

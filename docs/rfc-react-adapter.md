@@ -391,6 +391,8 @@ meta.error();
 
 If the stream meta exposes additional reactive getters that affect UI rendering, such as partial state, streaming state, or interruption state, the adapter should track those as well.
 
+The original metadata object, including `meta.dispose()`, remains available to application code. React unmount cleanup must release only adapter-created subscriptions and must not automatically cancel or dispose an externally supplied resource.
+
 ---
 
 ## Implementation Notes
@@ -726,6 +728,7 @@ Do not change resource hooks in the same first cycle.
 * `meta.error()` changes re-render React.
 * Metadata-only transitions re-render even if the value is unchanged.
 * Unmounting does not call `meta.cancel()`.
+* Unmounting does not call `meta.dispose()`.
 
 ### `useStreamResource()`
 

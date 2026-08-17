@@ -156,7 +156,7 @@ checked.
 - [x] Phase 3: Completion is terminal
 - [x] Phase 4: Push producers can fail explicitly
 - [x] Phase 5: Dispose permanently stops the resource
-- [ ] Phase 6: Adapter ownership audit
+- [x] Phase 6: Adapter ownership audit
 - [ ] Phase 7: Push transport proof
 - [ ] Phase 8: Refactor, documentation, and verification
 
@@ -879,18 +879,18 @@ The public metadata change may require adapter test fixtures and types to add
 
 ### Tasks
 
-- [ ] Locate every React and Vue structural `StreamAsyncMeta` fixture.
-- [ ] Add or tighten a Vue characterization test showing scope disposal does not
+- [x] Locate every React and Vue structural `StreamAsyncMeta` fixture.
+- [x] Add or tighten a Vue characterization test showing scope disposal does not
   automatically dispose an externally supplied stream resource.
-- [ ] Add or tighten the equivalent React unmount characterization test.
-- [ ] Run each focused adapter test and confirm it protects ownership behavior.
-- [ ] GREEN: Update structural metadata fixtures with `dispose()`.
-- [ ] GREEN: Update exported adapter types affected by the new meta surface.
-- [ ] GREEN: Continue exposing the original `meta`, including `dispose()`.
-- [ ] Confirm no unconditional Vue `onScopeDispose(meta.dispose)` is added.
-- [ ] Confirm no unconditional React effect cleanup owns the resource.
-- [ ] Run React adapter test and typecheck.
-- [ ] Run Vue adapter test and typecheck.
+- [x] Add or tighten the equivalent React unmount characterization test.
+- [x] Run each focused adapter test and confirm it protects ownership behavior.
+- [x] GREEN: Update structural metadata fixtures with `dispose()`.
+- [x] GREEN: Update exported adapter types affected by the new meta surface.
+- [x] GREEN: Continue exposing the original `meta`, including `dispose()`.
+- [x] Confirm no unconditional Vue `onScopeDispose(meta.dispose)` is added.
+- [x] Confirm no unconditional React effect cleanup owns the resource.
+- [x] Run React adapter test and typecheck.
+- [x] Run Vue adapter test and typecheck.
 
 Optional follow-up API requires a separate decision:
 
@@ -900,10 +900,41 @@ explicit adapter-owned or opt-in disposal
 
 Exit condition:
 
-- [ ] Shared graph resources survive consumer unmount.
-- [ ] Application code can explicitly connect `meta.dispose()` to an owning
+- [x] Shared graph resources survive consumer unmount.
+- [x] Application code can explicitly connect `meta.dispose()` to an owning
   scope.
-- [ ] Adapter documentation does not imply component ownership by default.
+- [x] Adapter documentation does not imply component ownership by default.
+
+### Phase 6 Completion Record
+
+```txt
+Date: 2026-08-17
+
+initial React adapter typecheck: passed directly GREEN
+initial Vue adapter typecheck: passed directly GREEN
+Vue ownership characterization: passed directly GREEN,
+                                1 test passed and 8 skipped
+Vue adapter regression: passed, 1 file and 9 tests
+React ownership characterization: passed directly GREEN,
+                                  1 test passed and 11 skipped
+React adapter regression: passed, 1 file and 12 tests
+React adapter typecheck and build: passed, CJS/ESM/DTS outputs generated
+Vue adapter typecheck and build: passed, CJS/ESM/DTS outputs generated
+
+Notes:
+* React and Vue each had one structural StreamAsyncMeta fixture; both now
+  include dispose() and verify that adapter teardown does not invoke it.
+* The ownership tests passed without adapter runtime changes because existing
+  teardown already owns only adapter-created subscriptions.
+* React returns the original generic metadata M. Vue retains meta: M on
+  VueStreamResource. Generated declarations therefore preserve dispose()
+  without adding a new adapter-specific lifecycle API.
+* Vue scope stop and React unmount do not call cancel() or dispose(). Application
+  code can still invoke the original meta.dispose() from an explicitly owning
+  lifecycle.
+* README, AI_USAGE, and adapter RFC guidance now state that component or scope
+  disposal does not imply ownership of a shared stream resource.
+```
 
 ## Phase 7: Push Transport Proof
 

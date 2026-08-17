@@ -52,6 +52,8 @@ React re-rendering is triggered by snapshot changes from resource metadata such 
 
 The React adapter does not own async semantics. Cancellation, invalidation, streaming lifecycle, and async correctness remain owned by `@signal-kernel/async-runtime`.
 
+Do not connect component unmount to `meta.dispose()` automatically. The resource may be shared outside that component. Preserve the original metadata object and let application code explicitly dispose only from a lifecycle that owns the resource.
+
 Prefer specialized hooks over generic graph reads when possible:
 
 - `useKernelValue()` for single readable graph values
