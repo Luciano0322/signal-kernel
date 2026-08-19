@@ -1,5 +1,14 @@
 # @signal-kernel/example-micro-frontend-runtime
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [a13ad95]
+  - @signal-kernel/async-runtime@0.4.0
+  - @signal-kernel/react@0.5.2
+  - @signal-kernel/vue@0.2.2
+
 ## 0.0.5
 
 ### Patch Changes

@@ -4,6 +4,12 @@
 
 ### Minor Changes
 
+- a13ad95: Extend `createStreamResource` with framework-neutral lifecycle controls for push-based streams. `StreamContext` now exposes `signal`, `onCleanup()`, and `fail()`, while `StreamAsyncMeta` provides `dispose()` for permanently stopping reactive observation. Cancelled or replaced runs execute cleanup once and ignore stale callbacks. Existing AsyncIterable and LLM-style stream producers remain compatible.
+
+## 0.4.0
+
+### Minor Changes
+
 - Extend `createStreamResource()` for finite and long-lived push producers without adding transport-specific primitives.
 - Add `StreamContext.signal`, `StreamContext.onCleanup()`, and `StreamContext.fail()` for abort propagation, subscription teardown, and callback-driven terminal failure.
 - Add `StreamAsyncMeta.dispose()` to permanently stop the active producer and reactive observation.
