@@ -130,14 +130,18 @@ batch(() => {
 
 ## Scheduler Model
 
-![Two-phase scheduler](https://github.com/Luciano0322/signal-kernel/blob/main/docs/scheduler.svg)
+![Lazy computed scheduler](https://github.com/Luciano0322/signal-kernel/blob/main/docs/scheduler.svg)
 
-This runtime uses a **two-phase deterministic scheduler**:
+This runtime separates synchronous graph invalidation from scheduled side
+effects:
 
-1. Recompute all stale computed nodes
-2. Execute all effects
+1. Signal writes mark dependent computed nodes as stale.
+2. Effects reached by invalidation are deduplicated and scheduled.
+3. Scheduled effects execute in deterministic order.
+4. A stale computed value recomputes lazily only when a consumer reads it.
 
-→ Guarantees stable and predictable execution order.
+Computed nodes without an active read remain stale and do not perform work.
+Once recomputed, their values stay cached until another dependency change.
 
 ---
 

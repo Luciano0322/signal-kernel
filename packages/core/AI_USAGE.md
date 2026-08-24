@@ -116,6 +116,16 @@ Preferred execution model:
 
 If describing scheduler behavior, preserve the distinction between derived recomputation and side-effect execution.
 
+Describe the current propagation model precisely:
+
+* signal writes synchronously mark dependent computed nodes as stale
+* invalidation schedules and deduplicates affected effects
+* stale computed values recompute lazily when read
+* computed nodes without an active read remain stale and do not perform work
+
+Do not claim that the scheduler eagerly recomputes every stale computed node
+before running effects.
+
 Do not describe update ordering as framework-owned unless the user is explicitly asking about an adapter layer.
 
 ---

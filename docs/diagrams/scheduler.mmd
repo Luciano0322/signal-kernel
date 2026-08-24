@@ -1,17 +1,17 @@
 flowchart TD
-  A["signal.set()"] --> B["mark computed as stale"]
+  A["signal.set()"] --> B["Propagate computed invalidation"]
 
-  B --> C["Scheduler triggered"]
+  B --> C["Schedule affected effects (deduped)"]
 
-  subgraph PhaseA["Phase A: Stabilize Computed"]
-    C --> D["Recompute all stale computed"]
+  subgraph Flush["Deterministic effect flush"]
+    C --> D["Execute next effect (by priority)"]
+    D --> E{"Reads a stale computed?"}
+    E -- Yes --> F["Recompute lazily and cache"]
+    E -- No --> G["Continue effect"]
+    F --> G
   end
 
-  subgraph PhaseB["Phase B: Run Effects"]
-    D --> E["Execute effects (by priority)"]
-  end
+  G --> H{"New work generated?"}
 
-  E --> F{"New work generated?"}
-
-  F -- Yes --> C
-  F -- No --> G["Flush complete"]
+  H -- Yes --> C
+  H -- No --> I["Flush complete"]

@@ -20,17 +20,24 @@ subs: Set<Node>
 
 ---
 
-## Scheduler (Two-phase flush)
+## Scheduler
 
 ![Scheduler](./scheduler.svg)
 
-### Phase A
+### Invalidation
 
-Recompute all stale computed nodes
+Signal writes synchronously mark dependent computed nodes as stale. Invalidation
+propagates through the graph and schedules affected effects without evaluating
+every computed node.
 
-### Phase B
+### Effect flush
 
-Execute all effects
+Scheduled effects are deduplicated and execute in deterministic order. When an
+effect or another consumer reads a stale computed value, that computed value
+recomputes on demand and caches its result.
+
+Computed nodes that are not read remain stale. The scheduler does not eagerly
+recompute the entire derived graph.
 
 ---
 

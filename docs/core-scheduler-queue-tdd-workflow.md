@@ -525,3 +525,20 @@ Improve internal computed scheduler queue behavior without changing public graph
 ```
 
 Do not present this as a new API feature.
+
+## Follow-up: Public Computed Semantics
+
+Recorded on 2026-08-24 after comparing the completed queue workflow with the
+public `computed()` implementation.
+
+This workflow optimized the scheduler's internal deduplicated computed-job
+queue without changing its behavior. Public `computed()` nodes do not currently
+enqueue themselves into that queue. Signal writes propagate invalidation and
+schedule affected effects; stale computed values recompute lazily when a
+consumer calls `get()`.
+
+The public runtime therefore does not eagerly recompute every stale computed
+node before effects. Whether the internal computed-job queue should gain a real
+public graph role or be removed is a separate semantic decision and must be
+driven by public behavior tests. It is not implied by the queue optimization
+completed in this workflow.
