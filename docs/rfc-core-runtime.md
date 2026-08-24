@@ -93,12 +93,19 @@ Batching is a graph consistency tool, not only a render optimization.
 
 ## Scheduler Model
 
-The runtime uses a two-phase scheduler:
+The runtime separates synchronous graph invalidation from scheduled side
+effects:
 
-1. Recompute stale computed nodes as needed.
-2. Execute effects after graph invalidation has settled.
+1. Signal writes mark dependent computed nodes as stale and propagate
+   invalidation through the graph.
+2. Effects reached by invalidation are deduplicated and scheduled.
+3. Scheduled effects execute in deterministic order.
+4. Stale computed values recompute lazily when read by an effect or another
+   consumer.
 
-This keeps derived graph state and side-effect execution separated.
+Computed nodes without an active read remain stale and are not evaluated. This
+keeps derived graph state and side-effect execution separated without turning
+computed values into eager work.
 
 The scheduler must not assume React commit phases, Vue flush timing, DOM microtasks, or renderer-specific lifecycles.
 
