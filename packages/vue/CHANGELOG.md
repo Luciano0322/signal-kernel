@@ -1,5 +1,13 @@
 # @signal-kernel/vue
 
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [d9ae063]
+  - @signal-kernel/core@0.1.5
+  - @signal-kernel/async-runtime@0.4.1
+
 ## 0.2.2
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @signal-kernel/example-hono-reactive-job-runtime
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [d9ae063]
+  - @signal-kernel/core@0.1.5
+  - @signal-kernel/async-runtime@0.4.1
+
 ## 0.0.3
 
 ### Patch Changes

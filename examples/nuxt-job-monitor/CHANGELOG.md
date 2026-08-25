@@ -1,5 +1,14 @@
 # @signal-kernel/example-nuxt-job-monitor
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [d9ae063]
+  - @signal-kernel/core@0.1.5
+  - @signal-kernel/async-runtime@0.4.1
+  - @signal-kernel/vue@0.2.3
+
 ## 0.0.4
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @signal-kernel/example-next-ai-chatbot
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [d9ae063]
+  - @signal-kernel/core@0.1.5
+  - @signal-kernel/async-runtime@0.4.1
+  - @signal-kernel/react@0.5.3
+
 ## 0.0.5
 
 ### Patch Changes

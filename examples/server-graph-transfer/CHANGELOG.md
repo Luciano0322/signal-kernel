@@ -1,5 +1,13 @@
 # @signal-kernel/example-server-graph-transfer
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [d9ae063]
+  - @signal-kernel/core@0.1.5
+  - @signal-kernel/react@0.5.3
+
 ## 0.0.4
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @signal-kernel/async-runtime
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [d9ae063]
+  - @signal-kernel/core@0.1.5
+
 ## 0.4.0
 
 ### Minor Changes

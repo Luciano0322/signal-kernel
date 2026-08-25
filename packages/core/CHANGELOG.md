@@ -1,5 +1,12 @@
 # @signal-kernel/core
 
+## 0.1.5
+
+### Patch Changes
+
+- d9ae063: Clarify that signal writes propagate invalidation and schedule affected effects,
+  while stale computed values remain lazy and recompute only when read.
+
 ## 0.1.4
 
 ### Patch Changes
