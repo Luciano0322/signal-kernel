@@ -1,6 +1,7 @@
 {
   "name": "@signal-kernel/async-runtime",
   "version": "0.4.1",
+  "description": "Framework-neutral async reactive runtime for cancellable resources, stale-result protection, invalidation, and push streams.",
   "type": "module",
   "author": "Luciano Lee",
   "license": "MIT",
@@ -22,21 +23,27 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Luciano0322/signal-kernel.git"
+    "url": "https://github.com/Luciano0322/signal-kernel.git",
+    "directory": "packages/async-runtime"
   },
-  "homepage": "https://github.com/Luciano0322/signal-kernel#readme",
+  "homepage": "https://github.com/Luciano0322/signal-kernel/tree/main/packages/async-runtime#readme",
   "bugs": {
     "url": "https://github.com/Luciano0322/signal-kernel/issues"
   },
   "keywords": [
+    "signal-kernel",
     "signals",
     "reactivity",
-    "async",
-    "async-signal",
-    "reactive",
-    "state-management",
-    "runtime",
-    "scheduler"
+    "async-reactivity",
+    "async-resource",
+    "cancellation",
+    "abort-signal",
+    "stale-result-protection",
+    "last-write-wins",
+    "stream-resource",
+    "push-stream",
+    "framework-agnostic",
+    "typescript"
   ],
   "publishConfig": {
     "access": "public"

@@ -1,6 +1,7 @@
 {
   "name": "@signal-kernel/snapshot",
   "version": "0.1.0",
+  "description": "Framework-neutral toolkit for capturing, encoding, diffing, and restoring explicit reactive graph state.",
   "type": "module",
   "author": "Luciano Lee",
   "license": "MIT",
@@ -23,19 +24,27 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Luciano0322/signal-kernel.git"
+    "url": "https://github.com/Luciano0322/signal-kernel.git",
+    "directory": "packages/snapshot"
   },
-  "homepage": "https://github.com/Luciano0322/signal-kernel#readme",
+  "homepage": "https://github.com/Luciano0322/signal-kernel/tree/main/packages/snapshot#readme",
   "bugs": {
     "url": "https://github.com/Luciano0322/signal-kernel/issues"
   },
   "keywords": [
+    "signal-kernel",
     "signals",
-    "snapshot",
     "reactivity",
-    "runtime",
+    "reactive-graph",
+    "graph-snapshot",
+    "state-transfer",
+    "serialization",
+    "json",
     "restore",
-    "serialization"
+    "diff",
+    "redaction",
+    "framework-agnostic",
+    "typescript"
   ],
   "publishConfig": {
     "access": "public"

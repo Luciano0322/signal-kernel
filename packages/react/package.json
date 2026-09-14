@@ -1,6 +1,7 @@
 {
   "name": "@signal-kernel/react",
   "version": "0.5.3",
+  "description": "Thin React adapter for subscribing to signal-kernel graph values and async resources without making React own the graph.",
   "type": "module",
   "author": "Luciano Lee",
   "license": "MIT",
@@ -23,18 +24,25 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Luciano0322/signal-kernel.git"
+    "url": "https://github.com/Luciano0322/signal-kernel.git",
+    "directory": "packages/react"
   },
-  "homepage": "https://github.com/Luciano0322/signal-kernel#readme",
+  "homepage": "https://github.com/Luciano0322/signal-kernel/tree/main/packages/react#readme",
   "bugs": {
     "url": "https://github.com/Luciano0322/signal-kernel/issues"
   },
   "keywords": [
+    "signal-kernel",
     "signals",
-    "react",
     "reactivity",
-    "adapter",
-    "runtime"
+    "react",
+    "react-hooks",
+    "reactive-graph",
+    "fine-grained-reactivity",
+    "external-store",
+    "framework-adapter",
+    "async-resource",
+    "typescript"
   ],
   "publishConfig": {
     "access": "public"
