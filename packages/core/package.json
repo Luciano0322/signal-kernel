@@ -19,6 +19,7 @@
   "files": [
     "dist",
     "README.md",
+    "AI_USAGE.md",
     "LICENSE"
   ],
   "repository": {

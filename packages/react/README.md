@@ -5,9 +5,13 @@
 
 ---
 
-React lifecycle adapter for `signal-kernel`.
+`@signal-kernel/react` is a thin rendering adapter for React applications that
+need to observe an existing signal-kernel graph. It subscribes and renders
+snapshots without moving graph ownership, business logic, or async lifecycle
+into React.
 
-This package lets React components observe existing `@signal-kernel/core` graph values without moving graph ownership into React. Core signals, computed values, effects, batching, and invalidation semantics remain owned by `@signal-kernel/core`; React only subscribes and renders snapshots.
+Core signals, computed values, effects, batching, and invalidation semantics
+remain owned by `@signal-kernel/core`.
 
 ## Install
 
