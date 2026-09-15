@@ -4,8 +4,13 @@
 <h1 align="center">@signal-kernel/snapshot</h1>
 
 <p align="center">
-Framework-neutral graph state capture, JSON-safe transfer, diff, and restore.
+  Framework-neutral capture, JSON-safe transfer, diff, redaction, and compatible restore for explicit reactive graph state.
 </p>
+
+`@signal-kernel/snapshot` is for transferring or inspecting registered graph
+state without turning serialization into renderer hydration, persistent
+storage, or live async continuation. Writable signals may be restored into a
+compatible graph; derived values recompute from those restored sources.
 
 ---
 

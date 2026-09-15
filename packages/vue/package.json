@@ -1,6 +1,7 @@
 {
   "name": "@signal-kernel/vue",
   "version": "0.2.3",
+  "description": "Thin Vue adapter for exposing signal-kernel graph values and async resources as readonly refs.",
   "type": "module",
   "author": "Luciano Lee",
   "license": "MIT",
@@ -23,18 +24,25 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Luciano0322/signal-kernel.git"
+    "url": "https://github.com/Luciano0322/signal-kernel.git",
+    "directory": "packages/vue"
   },
-  "homepage": "https://github.com/Luciano0322/signal-kernel#readme",
+  "homepage": "https://github.com/Luciano0322/signal-kernel/tree/main/packages/vue#readme",
   "bugs": {
     "url": "https://github.com/Luciano0322/signal-kernel/issues"
   },
   "keywords": [
+    "signal-kernel",
     "signals",
-    "vue",
     "reactivity",
-    "adapter",
-    "runtime"
+    "vue",
+    "vue-composable",
+    "reactive-graph",
+    "fine-grained-reactivity",
+    "readonly-ref",
+    "framework-adapter",
+    "async-resource",
+    "typescript"
   ],
   "publishConfig": {
     "access": "public"

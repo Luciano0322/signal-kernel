@@ -3,11 +3,16 @@
 </p>
 <h1 align="center">@signal-kernel/async-runtime</h1>
 
+<p align="center">
+  A framework-neutral async correctness layer for cancellable resources, stale-result protection, explicit invalidation, and push streams.
+</p>
+
+`@signal-kernel/async-runtime` is for async work that must participate in a
+reactive graph without becoming owned by React, Vue, or another renderer. It
+builds on `@signal-kernel/core` and keeps request, stream, and mutation
+lifecycle policies available outside UI components.
+
 ---
-
-### Async primitives built on top of `@signal-kernel/core`
-
-`@signal-kernel/async-runtime` provides a set of high-level utilities for managing asynchronous state using the fine-grained reactive engine from `@signal-kernel/core`.
 
 It exposes five primary capabilities:
 

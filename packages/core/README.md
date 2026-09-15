@@ -3,13 +3,13 @@
 </p>
 <h1 align="center">@signal-kernel/core</h1>
 <p align="center">
-A minimal, deterministic, fine-grained reactivity engine.
+  A framework-agnostic reactive graph runtime with lazy computed values, deterministic effects, and batching.
 </p>
 <p align="center">
-  Build reactive systems without frameworks — from UI adapters to async dataflow runtimes.
+  Use it to keep business state and derived data independent from rendering frameworks.
 </p>
 <p align="center">
-  Think of this as a <b>reactive runtime kernel</b>, not a framework.
+  The graph owns reactivity; renderers connect through adapters.
 </p>
 
 ---

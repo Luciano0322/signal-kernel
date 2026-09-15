@@ -1,6 +1,7 @@
 {
   "name": "@signal-kernel/core",
   "version": "0.1.5",
+  "description": "Framework-agnostic fine-grained reactive graph runtime with lazy computed values, deterministic effects, and batching.",
   "type": "module",
   "author": "Luciano Lee",
   "license": "MIT",
@@ -18,24 +19,30 @@
   "files": [
     "dist",
     "README.md",
+    "AI_USAGE.md",
     "LICENSE"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Luciano0322/signal-kernel.git"
+    "url": "https://github.com/Luciano0322/signal-kernel.git",
+    "directory": "packages/core"
   },
-  "homepage": "https://github.com/Luciano0322/signal-kernel#readme",
+  "homepage": "https://github.com/Luciano0322/signal-kernel/tree/main/packages/core#readme",
   "bugs": {
     "url": "https://github.com/Luciano0322/signal-kernel/issues"
   },
   "keywords": [
+    "signal-kernel",
     "signals",
     "reactivity",
-    "fine-grained",
-    "reactive",
-    "state-management",
-    "runtime",
-    "scheduler"
+    "reactive-graph",
+    "fine-grained-reactivity",
+    "lazy-computed",
+    "dependency-tracking",
+    "deterministic-scheduler",
+    "batching",
+    "framework-agnostic",
+    "typescript"
   ],
   "publishConfig": {
     "access": "public"

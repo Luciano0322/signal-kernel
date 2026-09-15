@@ -28,7 +28,10 @@
 
 ## What is signal-kernel?
 
-**signal-kernel** is a lightweight, framework-agnostic runtime for fine-grained reactivity.
+**signal-kernel** is a framework-agnostic reactive runtime for deterministic
+data graphs. It combines lazy synchronous reactivity, async correctness,
+explicit graph state transfer, and thin rendering adapters without making a UI
+framework the owner of business state.
 
 It starts with a small synchronous reactive core, then extends the same graph model to async state, resource loading, and streaming scenarios.
 
@@ -63,15 +66,15 @@ Framework adapters follow the same **thin-wrapper approach**: preserve runtime s
 
 ---
 
-## Packages Overview
+## Choose a Package
 
-| Package                          | npm                                                               | Description                                                                                      |
-| -------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| **@signal-kernel/core**          | [npm](https://www.npmjs.com/package/@signal-kernel/core)          | Sync reactivity: signals, computed values, effects, dependency graph, scheduler                  |
-| **@signal-kernel/async-runtime** | [npm](https://www.npmjs.com/package/@signal-kernel/async-runtime) | Async runtime primitives: `fromPromise`, `asyncSignal`, `createResource`, `createStreamResource` |
-| **@signal-kernel/react**         | [npm](https://www.npmjs.com/package/@signal-kernel/react)         | Thin React adapter for reading existing signal-kernel graph values in React                      |
-| **@signal-kernel/vue**           | [npm](https://www.npmjs.com/package/@signal-kernel/vue)           | Thin Vue adapter for exposing existing signal-kernel graph values as readonly Vue refs           |
-| **@signal-kernel/snapshot**      | [npm](https://www.npmjs.com/package/@signal-kernel/snapshot)      | Graph state capture, JSON-safe transfer, compatible restore, diff, and redaction                 |
+| You need | Package | Choose it when |
+| --- | --- | --- |
+| A synchronous reactive graph | [**@signal-kernel/core**](https://www.npmjs.com/package/@signal-kernel/core) | Business state needs signals, lazy computed values, deterministic effects, and batching without a UI framework. |
+| Race-safe asynchronous state | [**@signal-kernel/async-runtime**](https://www.npmjs.com/package/@signal-kernel/async-runtime) | Requests or streams need cancellation, latest-wins behavior, explicit invalidation, or push-subscription cleanup. |
+| Explicit graph state transfer | [**@signal-kernel/snapshot**](https://www.npmjs.com/package/@signal-kernel/snapshot) | Registered graph state must be captured, encoded, diffed, redacted, or restored across compatible runtimes. |
+| React rendering integration | [**@signal-kernel/react**](https://www.npmjs.com/package/@signal-kernel/react) | React should render an existing signal-kernel graph without owning its business logic or async lifecycle. |
+| Vue rendering integration | [**@signal-kernel/vue**](https://www.npmjs.com/package/@signal-kernel/vue) | Vue should expose an existing signal-kernel graph as readonly refs without owning the graph. |
 
 ---
 

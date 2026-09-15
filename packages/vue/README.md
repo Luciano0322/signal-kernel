@@ -5,9 +5,13 @@
 
 ---
 
-Vue scope adapter for `signal-kernel`.
+`@signal-kernel/vue` is a thin rendering adapter for Vue applications that need
+to expose an existing signal-kernel graph as readonly refs. It connects Vue
+scopes to graph values without moving graph ownership, business logic, or async
+lifecycle into Vue.
 
-This package lets Vue components and composables observe existing `@signal-kernel/core` graph values without moving graph ownership into Vue. Core signals, computed values, effects, batching, and invalidation semantics remain owned by `@signal-kernel/core`; Vue only receives readonly ref snapshots.
+Core signals, computed values, effects, batching, and invalidation semantics
+remain owned by `@signal-kernel/core`.
 
 ## Install
 
