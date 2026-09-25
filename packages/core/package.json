@@ -1,6 +1,6 @@
 {
   "name": "@signal-kernel/core",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Framework-agnostic fine-grained reactive graph runtime with lazy computed values, deterministic effects, and batching.",
   "type": "module",
   "author": "Luciano Lee",

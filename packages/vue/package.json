@@ -1,6 +1,6 @@
 {
   "name": "@signal-kernel/vue",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Thin Vue adapter for exposing signal-kernel graph values and async resources as readonly refs.",
   "type": "module",
   "author": "Luciano Lee",

@@ -1,5 +1,14 @@
 # @signal-kernel/example-ai-memory-correctness
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [d3cfaa5]
+  - @signal-kernel/core@0.1.6
+  - @signal-kernel/async-runtime@0.4.2
+  - @signal-kernel/react@0.5.4
+
 ## 0.0.5
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # @signal-kernel/example-devops-runtime
 
+## 0.0.8
+
+### Patch Changes
+
+- Updated dependencies [d3cfaa5]
+  - @signal-kernel/core@0.1.6
+  - @signal-kernel/async-runtime@0.4.2
+  - @signal-kernel/react@0.5.4
+  - @signal-kernel/vue@0.2.4
+
 ## 0.0.7
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@signal-kernel/async-runtime",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Framework-neutral async reactive runtime for cancellable resources, stale-result protection, invalidation, and push streams.",
   "type": "module",
   "author": "Luciano Lee",

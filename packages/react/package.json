@@ -1,6 +1,6 @@
 {
   "name": "@signal-kernel/react",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "Thin React adapter for subscribing to signal-kernel graph values and async resources without making React own the graph.",
   "type": "module",
   "author": "Luciano Lee",

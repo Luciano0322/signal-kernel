@@ -1,5 +1,15 @@
 # @signal-kernel/async-runtime
 
+## 0.4.2
+
+### Patch Changes
+
+- d3cfaa5: Improve package discovery with focused README introductions, package-specific
+  metadata and homepage links, a root package selection guide, and published AI
+  usage guidance.
+- Updated dependencies [d3cfaa5]
+  - @signal-kernel/core@0.1.6
+
 ## 0.4.1
 
 ### Patch Changes

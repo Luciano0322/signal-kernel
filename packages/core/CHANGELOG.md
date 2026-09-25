@@ -1,5 +1,13 @@
 # @signal-kernel/core
 
+## 0.1.6
+
+### Patch Changes
+
+- d3cfaa5: Improve package discovery with focused README introductions, package-specific
+  metadata and homepage links, a root package selection guide, and published AI
+  usage guidance.
+
 ## 0.1.5
 
 ### Patch Changes
